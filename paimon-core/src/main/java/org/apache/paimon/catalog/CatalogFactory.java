@@ -66,10 +66,19 @@ public interface CatalogFactory {
         // manual validation
         // because different catalog types may have different options
         // we can't list them all in the optionalOptions() method
+        // 1 获取 warehouse key 对应的值
+        // 比如 'warehouse' = 'hdfs:///path/to/warehouse'
         String warehouse = warehouse(context).toUri().toString();
 
+        // 2 获取 metastore key 对应的值 如果不存在则 返回 filesystem
+        // 比如 'metastore' = 'hive'
         String metastore = context.options().get(METASTORE);
         List<CatalogFactory> factories = new ArrayList<>();
+
+        // 3 基于 Java SPI 机制加载 CatalogFactory 的所有子类
+        // 并根据 metastore 对应的值过滤对应的 CatalogFactory 的子类
+        // 一般情况下 filesystem -> FileSystemCatalogFactory
+        // hive -> HiveCatalogFactory
         ServiceLoader.load(CatalogFactory.class, classLoader)
                 .iterator()
                 .forEachRemaining(
@@ -88,10 +97,11 @@ public interface CatalogFactory {
                             + metastore
                             + ". They are:\n"
                             + factories.stream()
-                                    .map(t -> t.getClass().getName())
-                                    .collect(Collectors.joining("\n")));
+                            .map(t -> t.getClass().getName())
+                            .collect(Collectors.joining("\n")));
         }
 
+        // 4 根据 CREATE CATALOG warehouse 属性创建对应的目录
         Path warehousePath = new Path(warehouse);
         FileIO fileIO;
 
@@ -104,12 +114,14 @@ public interface CatalogFactory {
                         WAREHOUSE.key(),
                         warehouse);
             } else {
+                // 创建目录
                 fileIO.mkdirs(warehousePath);
             }
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
 
+        // 5 创建 catalog
         return factories.get(0).create(fileIO, warehousePath, context);
     }
 }

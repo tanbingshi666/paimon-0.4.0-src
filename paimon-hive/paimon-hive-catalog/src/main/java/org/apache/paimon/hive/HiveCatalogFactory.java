@@ -35,7 +35,9 @@ import static org.apache.paimon.hive.HiveCatalogOptions.HADOOP_CONF_DIR;
 import static org.apache.paimon.hive.HiveCatalogOptions.HIVE_CONF_DIR;
 import static org.apache.paimon.hive.HiveCatalogOptions.IDENTIFIER;
 
-/** Factory to create {@link HiveCatalog}. */
+/**
+ * Factory to create {@link HiveCatalog}.
+ */
 public class HiveCatalogFactory implements CatalogFactory {
 
     private static final ConfigOption<String> METASTORE_CLIENT_CLASS =
@@ -54,6 +56,8 @@ public class HiveCatalogFactory implements CatalogFactory {
 
     @Override
     public Catalog create(FileIO fileIO, Path warehouse, CatalogContext context) {
+        // 1 获取 uri 属性值
+        // 比如 'uri' = 'thrift://hadoop102:9083'
         String uri =
                 Preconditions.checkNotNull(
                         context.options().get(CatalogOptions.URI),
@@ -62,17 +66,24 @@ public class HiveCatalogFactory implements CatalogFactory {
                                 + IDENTIFIER
                                 + " catalog");
 
+        // 2 获取 hive-conf-dir 属性值
         String hiveConfDir = context.options().get(HIVE_CONF_DIR);
+        // 3 获取 hadoop-conf-dir 属性值
         String hadoopConfDir = context.options().get(HADOOP_CONF_DIR);
+        // 4 创建 HiveConf
         HiveConf hiveConf = createHiveConf(hiveConfDir, hadoopConfDir);
 
         // always using user-set parameters overwrite hive-site.xml parameters
         context.options().toMap().forEach(hiveConf::set);
+        // 5 覆盖 HiveConf 的属性值
+        // hive.metastore.uris hive.metastore.warehouse.dir
         hiveConf.set(HiveConf.ConfVars.METASTOREURIS.varname, uri);
         hiveConf.set(HiveConf.ConfVars.METASTOREWAREHOUSE.varname, warehouse.toUri().toString());
 
+        // 6 获取 Hive Metastore 客户端类 默认 HiveMetaStoreClient
         String clientClassName = context.options().get(METASTORE_CLIENT_CLASS);
 
+        // 7 创建 HiveCatalog
         return new HiveCatalog(fileIO, hiveConf, clientClassName, context.options().toMap());
     }
 }

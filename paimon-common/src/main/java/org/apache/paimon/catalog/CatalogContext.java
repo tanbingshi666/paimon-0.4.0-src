@@ -67,6 +67,7 @@ public class CatalogContext {
     }
 
     public static CatalogContext create(Options options, FileIOLoader fallbackIOLoader) {
+        // 创建 CatalogContext
         return new CatalogContext(options, null, fallbackIOLoader);
     }
 

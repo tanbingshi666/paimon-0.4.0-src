@@ -63,7 +63,9 @@ import static org.apache.paimon.flink.FlinkConnectorOptions.NONE;
 import static org.apache.paimon.flink.LogicalTypeConversion.toLogicalType;
 import static org.apache.paimon.flink.log.LogStoreTableFactory.discoverLogStoreFactory;
 
-/** Abstract paimon factory to create table source and table sink. */
+/**
+ * Abstract paimon factory to create table source and table sink.
+ */
 public abstract class AbstractFlinkTableFactory
         implements DynamicTableSourceFactory, DynamicTableSinkFactory {
 
@@ -87,10 +89,14 @@ public abstract class AbstractFlinkTableFactory
 
     @Override
     public DynamicTableSink createDynamicTableSink(Context context) {
+        // 创建 FlinkTableSink
         return new FlinkTableSink(
                 context.getObjectIdentifier(),
+                // 构建 Paimon Table
                 buildPaimonTable(context),
                 context,
+                // 创建 LogStoreFactory 可选 一般情况下返回 Optional.empty()
+                // 比如 sink 表属性存在 log.system = kafka 等等 默认 log.system = none
                 createOptionalLogStoreFactory(context).orElse(null));
     }
 
@@ -108,8 +114,10 @@ public abstract class AbstractFlinkTableFactory
 
     static Optional<LogStoreTableFactory> createOptionalLogStoreFactory(
             DynamicTableFactory.Context context) {
+        // 创建 LogStoreTableFactory
         return createOptionalLogStoreFactory(
-                context.getClassLoader(), context.getCatalogTable().getOptions());
+                context.getClassLoader(),
+                context.getCatalogTable().getOptions());
     }
 
     static Optional<LogStoreTableFactory> createOptionalLogStoreFactory(

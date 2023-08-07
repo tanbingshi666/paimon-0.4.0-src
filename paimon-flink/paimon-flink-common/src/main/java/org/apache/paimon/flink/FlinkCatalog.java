@@ -70,7 +70,9 @@ import static org.apache.paimon.CoreOptions.PATH;
 import static org.apache.paimon.flink.LogicalTypeConversion.toDataType;
 import static org.apache.paimon.flink.LogicalTypeConversion.toLogicalType;
 
-/** Catalog for paimon. */
+/**
+ * Catalog for paimon.
+ */
 public class FlinkCatalog extends AbstractCatalog {
 
     private final Catalog catalog;
@@ -79,6 +81,8 @@ public class FlinkCatalog extends AbstractCatalog {
         super(name, defaultDatabase);
         this.catalog = catalog;
         try {
+            // 创建库 默认 default
+            // 如果基于 Hive Metastore 管理 catalog 则 调用 HiveCatalog 创建库
             this.catalog.createDatabase(defaultDatabase, true);
         } catch (Catalog.DatabaseAlreadyExistException ignore) {
         }
@@ -282,11 +286,11 @@ public class FlinkCatalog extends AbstractCatalog {
         if (ts1.getPrimaryKey().isPresent() && ts2.getPrimaryKey().isPresent()) {
             pkEquality =
                     Objects.equals(
-                                    ts1.getPrimaryKey().get().getType(),
-                                    ts2.getPrimaryKey().get().getType())
+                            ts1.getPrimaryKey().get().getType(),
+                            ts2.getPrimaryKey().get().getType())
                             && Objects.equals(
-                                    ts1.getPrimaryKey().get().getColumns(),
-                                    ts2.getPrimaryKey().get().getColumns());
+                            ts1.getPrimaryKey().get().getColumns(),
+                            ts2.getPrimaryKey().get().getColumns());
         } else if (!ts1.getPrimaryKey().isPresent() && !ts2.getPrimaryKey().isPresent()) {
             pkEquality = true;
         }
@@ -304,7 +308,8 @@ public class FlinkCatalog extends AbstractCatalog {
     }
 
     @Override
-    public final void open() throws CatalogException {}
+    public final void open() throws CatalogException {
+    }
 
     @Override
     public final void close() throws CatalogException {

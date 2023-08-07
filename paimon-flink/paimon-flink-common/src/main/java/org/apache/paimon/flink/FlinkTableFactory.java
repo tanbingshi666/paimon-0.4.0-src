@@ -37,10 +37,13 @@ import javax.annotation.Nullable;
 import static org.apache.paimon.CoreOptions.AUTO_CREATE;
 import static org.apache.paimon.flink.FlinkCatalogFactory.IDENTIFIER;
 
-/** A paimon {@link DynamicTableFactory} to create source and sink. */
+/**
+ * A paimon {@link DynamicTableFactory} to create source and sink.
+ */
 public class FlinkTableFactory extends AbstractFlinkTableFactory {
 
-    @Nullable private final CatalogLock.Factory lockFactory;
+    @Nullable
+    private final CatalogLock.Factory lockFactory;
 
     public FlinkTableFactory() {
         this(null);
@@ -73,6 +76,9 @@ public class FlinkTableFactory extends AbstractFlinkTableFactory {
 
     @Override
     public DynamicTableSink createDynamicTableSink(Context context) {
+        // 创建 Flink Paimon Table Sink
+
+        // 一般情况下 返回 false
         if (isFlinkTable(context)) {
             // only Flink 1.14 temporary table will come here
             return FactoryUtil.createTableSink(
@@ -83,15 +89,22 @@ public class FlinkTableFactory extends AbstractFlinkTableFactory {
                     context.getClassLoader(),
                     context.isTemporary());
         }
+
+        // 2 如果需要则创建 Sink 表
         createTableIfNeeded(context);
+
+        // 3 创建 FlinkTableSink
         FlinkTableSink sink = (FlinkTableSink) super.createDynamicTableSink(context);
         sink.setLockFactory(lockFactory);
         return sink;
     }
 
     private void createTableIfNeeded(Context context) {
+        // 1 获取表信息
         ResolvedCatalogTable table = context.getCatalogTable();
+        // 2 获取表属性选项
         Options options = Options.fromMap(table.getOptions());
+        // 3 判断 auto-create 是否为 true 默认 false
         if (options.get(AUTO_CREATE)) {
             try {
                 Path tablePath = CoreOptions.path(table.getOptions());

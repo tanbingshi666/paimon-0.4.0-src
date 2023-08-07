@@ -28,7 +28,9 @@ import org.apache.paimon.options.Options;
 import java.util.Collections;
 import java.util.Set;
 
-/** Factory for {@link FlinkCatalog}. */
+/**
+ * Factory for {@link FlinkCatalog}.
+ */
 public class FlinkCatalogFactory implements org.apache.flink.table.factories.CatalogFactory {
 
     public static final String IDENTIFIER = "paimon";
@@ -55,16 +57,29 @@ public class FlinkCatalogFactory implements org.apache.flink.table.factories.Cat
 
     @Override
     public FlinkCatalog createCatalog(Context context) {
+        // 一般情况下 创建 paimon catalog 都会执行到这里 其中 context = DefaultCatalogContext
+        // 创建 catalog
         return createCatalog(
+                // 获取 catalog 名字
                 context.getName(),
+                // 创建 CatalogContext
                 CatalogContext.create(
-                        Options.fromMap(context.getOptions()), new FlinkFileIOLoader()),
+                        // CREATE CATALOG 属性 (除了 type = paimon)
+                        Options.fromMap(context.getOptions()),
+                        new FlinkFileIOLoader()),
+                // 类加载器
                 context.getClassLoader());
     }
 
     public static FlinkCatalog createCatalog(
             String catalogName, CatalogContext context, ClassLoader classLoader) {
+        // 创建 FlinkCatalog
         return new FlinkCatalog(
+                // 创建 CatalogFactory
+                // Paimon 提供了两种方式管理 catalog
+                // 第一种方式基于文件系统：FileSystemCatalogFactory
+                // 第二种方式基于 hive metastore：HiveCatalogFactory
+                // 我们公司基于 hive metastore 故创建 HiveCatalog
                 CatalogFactory.createCatalog(context, classLoader),
                 catalogName,
                 context.options().get(DEFAULT_DATABASE));

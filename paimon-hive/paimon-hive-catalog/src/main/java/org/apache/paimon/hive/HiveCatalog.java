@@ -77,7 +77,9 @@ import static org.apache.paimon.options.CatalogOptions.TABLE_TYPE;
 import static org.apache.paimon.utils.Preconditions.checkState;
 import static org.apache.paimon.utils.StringUtils.isNullOrWhitespaceOnly;
 
-/** A catalog implementation for Hive. */
+/**
+ * A catalog implementation for Hive.
+ */
 public class HiveCatalog extends AbstractCatalog {
     private static final Logger LOG = LoggerFactory.getLogger(HiveCatalog.class);
 
@@ -107,8 +109,11 @@ public class HiveCatalog extends AbstractCatalog {
     public HiveCatalog(
             FileIO fileIO, HiveConf hiveConf, String clientClassName, Map<String, String> options) {
         super(fileIO, options);
+        // Hive 配置类
         this.hiveConf = hiveConf;
+        // Hive Metastore 客户端类 HiveMetaStoreClient
         this.clientClassName = clientClassName;
+        // 创建 HMS 客户端
         this.client = createClient(hiveConf, clientClassName);
     }
 
@@ -150,6 +155,7 @@ public class HiveCatalog extends AbstractCatalog {
     public void createDatabase(String name, boolean ignoreIfExists)
             throws DatabaseAlreadyExistException {
         try {
+            // 向 Hive Metastore 创建库 也即发送一个 RPC 请求 (基于 thrift 协议)
             client.createDatabase(convertToDatabase(name));
         } catch (AlreadyExistsException e) {
             if (!ignoreIfExists) {
@@ -243,11 +249,14 @@ public class HiveCatalog extends AbstractCatalog {
     @Override
     public void createTable(Identifier identifier, Schema schema, boolean ignoreIfExists)
             throws TableAlreadyExistException, DatabaseNotExistException {
+        // 1 检测创建表是否为系统表
         checkNotSystemTable(identifier, "createTable");
+        // 2 获取数据库并检测数据库是否存在
         String databaseName = identifier.getDatabaseName();
         if (!databaseExists(databaseName)) {
             throw new DatabaseNotExistException(databaseName);
         }
+        // 3 判断表是否已经存在
         if (paimonTableExists(identifier)) {
             if (ignoreIfExists) {
                 return;
@@ -256,14 +265,17 @@ public class HiveCatalog extends AbstractCatalog {
             }
         }
 
+        // 4 检测创建表字段是否为小写
         checkFieldNamesUpperCase(schema.rowType().getFieldNames());
         // first commit changes to underlying files
         // if changes on Hive fails there is no harm to perform the same changes to files again
 
+        // 5 负责创建表选项属性
         copyTableDefaultOptions(schema.options());
 
         TableSchema tableSchema;
         try {
+            // 6 创建表 schema
             tableSchema = schemaManager(identifier).createTable(schema);
         } catch (Exception e) {
             throw new RuntimeException(
@@ -272,9 +284,11 @@ public class HiveCatalog extends AbstractCatalog {
                             + " to underlying files",
                     e);
         }
+        // 7 创建 Table 并更新表存储格式
         Table table = newHmsTable(identifier);
         updateHmsTable(table, identifier, tableSchema);
         try {
+            // 8 执行创建表 也即向 HMS 服务发送 RPC 请求
             client.createTable(table);
         } catch (TException e) {
             Path path = getDataTableLocation(identifier);
@@ -444,6 +458,7 @@ public class HiveCatalog extends AbstractCatalog {
     }
 
     private void updateHmsTable(Table table, Identifier identifier, TableSchema schema) {
+        // 表添加存储描述器
         StorageDescriptor sd = convertToStorageDescriptor(identifier, schema);
         table.setSd(sd);
     }
@@ -533,20 +548,20 @@ public class HiveCatalog extends AbstractCatalog {
     private static final List<Class<?>[]> GET_PROXY_PARAMS =
             Arrays.asList(
                     // for hive 2.x
-                    new Class<?>[] {
-                        HiveConf.class,
-                        HiveMetaHookLoader.class,
-                        ConcurrentHashMap.class,
-                        String.class,
-                        Boolean.TYPE
+                    new Class<?>[]{
+                            HiveConf.class,
+                            HiveMetaHookLoader.class,
+                            ConcurrentHashMap.class,
+                            String.class,
+                            Boolean.TYPE
                     },
                     // for hive 3.x
-                    new Class<?>[] {
-                        Configuration.class,
-                        HiveMetaHookLoader.class,
-                        ConcurrentHashMap.class,
-                        String.class,
-                        Boolean.TYPE
+                    new Class<?>[]{
+                            Configuration.class,
+                            HiveMetaHookLoader.class,
+                            ConcurrentHashMap.class,
+                            String.class,
+                            Boolean.TYPE
                     });
 
     static IMetaStoreClient createClient(HiveConf hiveConf, String clientClassName) {
@@ -556,6 +571,7 @@ public class HiveCatalog extends AbstractCatalog {
                         "Failed to find desired getProxy method from RetryingMetaStoreClient");
         for (Class<?>[] classes : GET_PROXY_PARAMS) {
             try {
+                // 获取 HMS 客户端代理方法
                 getProxy = RetryingMetaStoreClient.class.getMethod("getProxy", classes);
             } catch (NoSuchMethodException e) {
                 methodNotFound.addSuppressed(e);
@@ -567,6 +583,7 @@ public class HiveCatalog extends AbstractCatalog {
 
         IMetaStoreClient client;
         try {
+            // 2 创建 HMS 代理客户端
             client =
                     (IMetaStoreClient)
                             getProxy.invoke(
@@ -579,6 +596,7 @@ public class HiveCatalog extends AbstractCatalog {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+        // 3 基于 Java 动态代理的方式获取 HMS 客户端
         return isNullOrWhitespaceOnly(hiveConf.get(HiveConf.ConfVars.METASTOREURIS.varname))
                 ? client
                 : HiveMetaStoreClient.newSynchronizedClient(client);
