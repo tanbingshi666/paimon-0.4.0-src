@@ -110,8 +110,12 @@ public class FileStorePathFactory {
     }
 
     public DataFilePathFactory createDataFilePathFactory(BinaryRow partition, int bucket) {
+        // 创建 DataFilePathFactory
         return new DataFilePathFactory(
-                root, getPartitionString(partition), bucket, formatIdentifier);
+                root,
+                getPartitionString(partition),
+                bucket,
+                formatIdentifier);
     }
 
     public Path bucketPath(BinaryRow partition, int bucket) {

@@ -56,12 +56,15 @@ public class AppendOnlyFileStore extends AbstractFileStore<InternalRow> {
 
     @Override
     public AppendOnlyFileStoreRead newRead() {
+        // 创建 AppendOnlyFileStoreRead
         return new AppendOnlyFileStoreRead(
                 fileIO,
                 schemaManager,
                 schemaId,
                 rowType,
+                // 文件 format
                 FileFormatDiscover.of(options),
+                // FileStorePathFactory
                 pathFactory());
     }
 

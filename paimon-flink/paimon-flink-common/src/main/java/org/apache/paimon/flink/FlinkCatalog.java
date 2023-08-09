@@ -167,12 +167,17 @@ public class FlinkCatalog extends AbstractCatalog {
             throws TableNotExistException, CatalogException {
         Table table;
         try {
+            // 1 获取表信息
+            // 一般情况下有两种类型：Append-Only、Primary-Key
+            // Append-Only -> AppendOnlyFileStoreTable
+            // Primary-Key -> ChangelogWithKeyFileStoreTable
             table = catalog.getTable(toIdentifier(tablePath));
         } catch (Catalog.TableNotExistException e) {
             throw new TableNotExistException(getName(), tablePath);
         }
 
         if (table instanceof FileStoreTable) {
+            // 2 将 FileStoreTable 转化为 CatalogTable -> DataCatalogTable
             return toCatalogTable(table);
         } else {
             return new SystemCatalogTable(table);
@@ -322,6 +327,8 @@ public class FlinkCatalog extends AbstractCatalog {
 
     private CatalogTableImpl toCatalogTable(Table table) {
         TableSchema schema;
+
+        // 1 获取表 schema options 配置
         Map<String, String> newOptions = new HashMap<>(table.options());
 
         // try to read schema from options
@@ -339,10 +346,15 @@ public class FlinkCatalog extends AbstractCatalog {
             removeProperties.putTableSchema(SCHEMA, schema);
             removeProperties.asMap().keySet().forEach(newOptions::remove);
         } else {
+            // 2 构建表 schema
             TableSchema.Builder builder = TableSchema.builder();
+
+            // 3 封装表字段
             for (RowType.RowField field : toLogicalType(table.rowType()).getFields()) {
                 builder.field(field.getName(), fromLogicalToDataType(field.getType()));
             }
+
+            // 4 解析表主键
             if (table.primaryKeys().size() > 0) {
                 builder.primaryKey(table.primaryKeys().toArray(new String[0]));
             }
@@ -350,8 +362,19 @@ public class FlinkCatalog extends AbstractCatalog {
             schema = builder.build();
         }
 
+        // 5 创建 DataCatalogTable
         return new DataCatalogTable(
-                table, schema, table.partitionKeys(), newOptions, table.comment().orElse(""));
+                // 5.1 表
+                table,
+                // 5.2 表 schema
+                schema,
+                // 5.3 表主键
+                table.partitionKeys(),
+                // 5.4 表选项属性
+                newOptions,
+                // 5.5 表注释
+                table.comment().orElse("")
+        );
     }
 
     public static Schema fromCatalogTable(CatalogTable catalogTable) {

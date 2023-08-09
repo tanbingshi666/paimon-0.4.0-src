@@ -32,7 +32,9 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-/** Manage consumer groups. */
+/**
+ * Manage consumer groups.
+ */
 public class ConsumerManager implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -48,7 +50,12 @@ public class ConsumerManager implements Serializable {
     }
 
     public Optional<Consumer> consumer(String consumerId) {
-        return Consumer.fromPath(fileIO, consumerPath(consumerId));
+        // 读取 consumer_id 数据内容 一般情况下只有一个字段 比如 nextSnapshot = 11
+        return Consumer.fromPath(
+                fileIO,
+                // 拼接消费者路径
+                // 格式为：{table_dir}/consumer/consumer-{consumer_id}/
+                consumerPath(consumerId));
     }
 
     public void recordConsumer(String consumerId, Consumer consumer) {

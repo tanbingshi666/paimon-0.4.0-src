@@ -34,7 +34,9 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinWorkerThread;
 import java.util.stream.Stream;
 
-/** Utils for file reading and writing. */
+/**
+ * Utils for file reading and writing.
+ */
 public class FileUtils {
 
     public static final ForkJoinPool COMMON_IO_FORK_JOIN_POOL;
@@ -105,6 +107,7 @@ public class FileUtils {
                             file));
         }
 
+        // 创建读取数据器 OrcVectorizedReader
         return format.createReader(fileIO, file);
     }
 }

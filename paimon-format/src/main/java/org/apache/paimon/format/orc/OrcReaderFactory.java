@@ -18,6 +18,7 @@
 
 package org.apache.paimon.format.orc;
 
+import org.apache.orc.impl.RecordReaderImpl;
 import org.apache.paimon.data.InternalRow;
 import org.apache.paimon.data.columnar.ColumnVector;
 import org.apache.paimon.data.columnar.ColumnarRow;
@@ -53,7 +54,9 @@ import static org.apache.paimon.format.orc.reader.AbstractOrcColumnVector.create
 import static org.apache.paimon.format.orc.reader.OrcSplitReaderUtil.toOrcType;
 import static org.apache.paimon.utils.Preconditions.checkNotNull;
 
-/** An ORC reader that produces a stream of {@link ColumnarRow} records. */
+/**
+ * An ORC reader that produces a stream of {@link ColumnarRow} records.
+ */
 public class OrcReaderFactory implements FormatReaderFactory {
 
     private static final long serialVersionUID = 1L;
@@ -71,10 +74,10 @@ public class OrcReaderFactory implements FormatReaderFactory {
     protected final int batchSize;
 
     /**
-     * @param hadoopConfig the hadoop config for orc reader.
-     * @param selectedFields the read selected field of orc format.
+     * @param hadoopConfig       the hadoop config for orc reader.
+     * @param selectedFields     the read selected field of orc format.
      * @param conjunctPredicates the filter predicates that can be evaluated.
-     * @param batchSize the batch size of orc reader.
+     * @param batchSize          the batch size of orc reader.
      */
     public OrcReaderFactory(
             final org.apache.hadoop.conf.Configuration hadoopConfig,
@@ -94,7 +97,11 @@ public class OrcReaderFactory implements FormatReaderFactory {
 
     @Override
     public OrcVectorizedReader createReader(FileIO fileIO, Path file) throws IOException {
+        // 1 创建 Pool<OrcReaderBatch>
         Pool<OrcReaderBatch> poolOfBatches = createPoolOfBatches(1);
+
+        // 2 创建读取器以及根据切片信息读取哪些数据
+        // RecordReaderImpl
         RecordReader orcReader =
                 createRecordReader(
                         hadoopConfigWrapper.getHadoopConfig(),
@@ -106,6 +113,7 @@ public class OrcReaderFactory implements FormatReaderFactory {
                         0,
                         fileIO.getFileSize(file));
 
+        // 3 创建 OrcVectorizedReader
         return new OrcVectorizedReader(orcReader, poolOfBatches);
     }
 
@@ -172,7 +180,9 @@ public class OrcReaderFactory implements FormatReaderFactory {
             recycler.recycle(this);
         }
 
-        /** Gets the ORC VectorizedRowBatch structure from this batch. */
+        /**
+         * Gets the ORC VectorizedRowBatch structure from this batch.
+         */
         public VectorizedRowBatch orcVectorizedRowBatch() {
             return orcVectorizedRowBatch;
         }
@@ -209,6 +219,7 @@ public class OrcReaderFactory implements FormatReaderFactory {
         private final Pool<OrcReaderBatch> pool;
 
         private OrcVectorizedReader(final RecordReader orcReader, final Pool<OrcReaderBatch> pool) {
+            // RecordReaderImpl
             this.orcReader = checkNotNull(orcReader, "orcReader");
             this.pool = checkNotNull(pool, "pool");
         }
@@ -216,14 +227,17 @@ public class OrcReaderFactory implements FormatReaderFactory {
         @Nullable
         @Override
         public RecordIterator<InternalRow> readBatch() throws IOException {
+            // 1 获取 OrcReaderBatch
             final OrcReaderBatch batch = getCachedEntry();
             final VectorizedRowBatch orcVectorBatch = batch.orcVectorizedRowBatch();
 
+            // 2 读取数据到 orcVectorBatch
             if (!nextBatch(orcReader, orcVectorBatch)) {
                 batch.recycle();
                 return null;
             }
 
+            // 3 转化
             return batch.convertAndGetIterator(orcVectorBatch);
         }
 
@@ -252,9 +266,11 @@ public class OrcReaderFactory implements FormatReaderFactory {
             long splitStart,
             long splitLength)
             throws IOException {
+        // 创建 ORC 读取数据器
         org.apache.orc.Reader orcReader = createReader(conf, fileIO, path);
         try {
             // get offset and length for the stripes that start in the split
+            // 读取哪些数据
             Pair<Long, Long> offsetAndLength =
                     getOffsetAndLengthForSplit(splitStart, splitLength, orcReader.getStripes());
 
@@ -276,7 +292,7 @@ public class OrcReaderFactory implements FormatReaderFactory {
                     predicate.add(b);
                 }
                 b = b.end();
-                options.searchArgument(b.build(), new String[] {});
+                options.searchArgument(b.build(), new String[]{});
             }
 
             // configure selected fields

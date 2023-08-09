@@ -49,7 +49,9 @@ import java.util.function.BiConsumer;
 
 import static org.apache.paimon.CoreOptions.PATH;
 
-/** Abstract {@link FileStoreTable}. */
+/**
+ * Abstract {@link FileStoreTable}.
+ */
 public abstract class AbstractFileStoreTable implements FileStoreTable {
 
     private static final long serialVersionUID = 1L;
@@ -59,14 +61,18 @@ public abstract class AbstractFileStoreTable implements FileStoreTable {
     protected final TableSchema tableSchema;
 
     public AbstractFileStoreTable(FileIO fileIO, Path path, TableSchema tableSchema) {
+        // 1 文件 IO 对象
         this.fileIO = fileIO;
+        // 2 表目录路径
         this.path = path;
         if (!tableSchema.options().containsKey(PATH.key())) {
             // make sure table is always available
+            // 往表 schema 添加 path -> 表目录路径
             Map<String, String> newOptions = new HashMap<>(tableSchema.options());
             newOptions.put(PATH.key(), path.toString());
             tableSchema = tableSchema.copy(newOptions);
         }
+        // 3 表 schema
         this.tableSchema = tableSchema;
     }
 
@@ -117,11 +123,13 @@ public abstract class AbstractFileStoreTable implements FileStoreTable {
                     }
                 });
 
+        // 执行拷贝
         return internalCopyWithoutCheck(dynamicOptions);
     }
 
     @Override
     public FileStoreTable internalCopyWithoutCheck(Map<String, String> dynamicOptions) {
+        // 1 获取表选项
         Map<String, String> options = new HashMap<>(tableSchema.options());
 
         // merge non-null dynamic options into schema.options
@@ -137,20 +145,26 @@ public abstract class AbstractFileStoreTable implements FileStoreTable {
         Options newOptions = Options.fromMap(options);
 
         // set path always
+        // 2 设置表存储目录路径
         newOptions.set(PATH, path.toString());
 
         // set dynamic options with default values
+        // 3 设置读取数据模式
         CoreOptions.setDefaultValues(newOptions);
 
         // copy a new table schema to contain dynamic options
+        // 4 拷贝表 schema
         TableSchema newTableSchema = tableSchema.copy(newOptions.toMap());
 
         // validate schema with new options
+        // 5 校验表 schema
         SchemaValidation.validateTableSchema(newTableSchema);
 
         // see if merged options contain time travel option
+        // 6 是否合并时间旅行
         newTableSchema = tryTimeTravel(newOptions).orElse(newTableSchema);
 
+        // 7 拷贝 FileStoreTable
         return copy(newTableSchema);
     }
 

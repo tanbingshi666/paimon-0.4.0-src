@@ -30,7 +30,9 @@ import org.apache.flink.table.data.RowData;
 
 import javax.annotation.Nullable;
 
-/** A Flink {@link Source} for paimon. */
+/**
+ * A Flink {@link Source} for paimon.
+ */
 public abstract class FlinkSource
         implements Source<RowData, FileStoreSourceSplit, PendingSplitsCheckpoint> {
 
@@ -38,9 +40,11 @@ public abstract class FlinkSource
 
     protected final ReadBuilder readBuilder;
 
-    @Nullable protected final Long limit;
+    @Nullable
+    protected final Long limit;
 
     public FlinkSource(ReadBuilder readBuilder, @Nullable Long limit) {
+        // ReadBuilderImpl
         this.readBuilder = readBuilder;
         this.limit = limit;
     }

@@ -72,17 +72,27 @@ public abstract class AbstractFlinkTableFactory
     @Override
     public DynamicTableSource createDynamicTableSource(Context context) {
         CatalogTable origin = context.getCatalogTable().getOrigin();
+        // 1 判断 source 是否为流模式
         boolean isStreamingMode =
                 context.getConfiguration().get(ExecutionOptions.RUNTIME_MODE)
                         == RuntimeExecutionMode.STREAMING;
+        // 2 判断 Table Source 是系统表还是数据表
         if (origin instanceof SystemCatalogTable) {
+            // 2.1 系统表情况下
             return new SystemTableSource(((SystemCatalogTable) origin).table(), isStreamingMode);
         } else {
+            // 2.2 数据表情况下
             return new DataTableSource(
                     context.getObjectIdentifier(),
+                    // 构建 Paimon Table
+                    // 一般情况下有两种表：Append-Only、Primary-Key
+                    // Append-Only -> AppendOnlyFileStoreTable
+                    // Primary-Key -> ChangelogWithKeyFileStoreTable
                     buildPaimonTable(context),
                     isStreamingMode,
                     context,
+                    // 默认情况下返回 null
+                    // 如果用户配置了 log.system = xxx(一般是kafka) 默认 none
                     createOptionalLogStoreFactory(context).orElse(null));
         }
     }
@@ -164,10 +174,18 @@ public abstract class AbstractFlinkTableFactory
     }
 
     static Table buildPaimonTable(DynamicTableFactory.Context context) {
+        // 1 如果是 Paimon 的系统表 DataCatalogTable
+        // 如果是 Paimon 的数据表 DataCatalogTable
         CatalogTable origin = context.getCatalogTable().getOrigin();
         Table table;
 
+        // 2 一般情况下都是 DataCatalogTable
+        // 具体查看 FlinkCatalog.getTable() -> DataCatalogTable
         if (origin instanceof DataCatalogTable) {
+            // 拷贝表 一般情况下有如下两种
+            // Append-Only -> AppendOnlyFileStoreTable
+            // Primary-Key -> ChangelogWithKeyFileStoreTable
+            // 调用它们的父类 AbstractFileStoreTable.copy()
             table = ((DataCatalogTable) origin).table().copy(origin.getOptions());
         } else {
             table = FileStoreTableFactory.create(createCatalogContext(context));

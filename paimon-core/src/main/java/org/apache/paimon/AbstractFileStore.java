@@ -51,7 +51,8 @@ public abstract class AbstractFileStore<T> implements FileStore<T> {
     protected final CoreOptions options;
     protected final RowType partitionType;
 
-    @Nullable private final SegmentsCache<String> writeManifestCache;
+    @Nullable
+    private final SegmentsCache<String> writeManifestCache;
 
     public AbstractFileStore(
             FileIO fileIO,
@@ -64,6 +65,7 @@ public abstract class AbstractFileStore<T> implements FileStore<T> {
         this.schemaId = schemaId;
         this.options = options;
         this.partitionType = partitionType;
+        // 获取 key = write-manifest-cache 默认 value = 0
         MemorySize writeManifestCache = options.writeManifestCache();
         this.writeManifestCache =
                 writeManifestCache.getBytes() == 0

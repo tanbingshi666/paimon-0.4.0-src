@@ -36,18 +36,23 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
-/** A Flink {@link ScanTableSource} for paimon. */
+/**
+ * A Flink {@link ScanTableSource} for paimon.
+ */
 public abstract class FlinkTableSource
         implements ScanTableSource,
-                SupportsFilterPushDown,
-                SupportsProjectionPushDown,
-                SupportsLimitPushDown {
+        SupportsFilterPushDown,
+        SupportsProjectionPushDown,
+        SupportsLimitPushDown {
 
     protected final Table table;
 
-    @Nullable protected Predicate predicate;
-    @Nullable protected int[][] projectFields;
-    @Nullable protected Long limit;
+    @Nullable
+    protected Predicate predicate;
+    @Nullable
+    protected int[][] projectFields;
+    @Nullable
+    protected Long limit;
 
     public FlinkTableSource(Table table) {
         this(table, null, null, null);
@@ -58,9 +63,15 @@ public abstract class FlinkTableSource
             @Nullable Predicate predicate,
             @Nullable int[][] projectFields,
             @Nullable Long limit) {
+        // 表
+        // Append-Only -> AppendOnlyFileStoreTable
+        // Primary-Key -> ChangelogWithKeyFileStoreTable
         this.table = table;
+        // 一般情况下为 null
         this.predicate = predicate;
+        // 一般情况下为 null
         this.projectFields = projectFields;
+        // 一般情况下为 null
         this.limit = limit;
     }
 

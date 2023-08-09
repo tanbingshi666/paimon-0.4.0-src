@@ -39,7 +39,9 @@ import javax.annotation.Nullable;
 
 import java.util.Collections;
 
-/** {@link StreamTableScan} implementation for streaming planning. */
+/**
+ * {@link StreamTableScan} implementation for streaming planning.
+ */
 public class InnerStreamTableScanImpl extends AbstractInnerTableScan
         implements InnerStreamTableScan {
 
@@ -53,7 +55,8 @@ public class InnerStreamTableScanImpl extends AbstractInnerTableScan
     private FollowUpScanner followUpScanner;
     private BoundedChecker boundedChecker;
     private boolean isFullPhaseEnd = false;
-    @Nullable private Long nextSnapshotId;
+    @Nullable
+    private Long nextSnapshotId;
 
     public InnerStreamTableScanImpl(
             CoreOptions options,
@@ -74,16 +77,22 @@ public class InnerStreamTableScanImpl extends AbstractInnerTableScan
 
     @Override
     public Plan plan() {
+        // 1 创建 StartingScanner
         if (startingScanner == null) {
             startingScanner = createStartingScanner(true);
         }
+
+        // 2 根据 key = changelog-producer 创建对应的 FollowUpScanner
         if (followUpScanner == null) {
             followUpScanner = createFollowUpScanner();
         }
+
+        // 3 判断读取数据是否指定 key = scan.bounded.watermark
         if (boundedChecker == null) {
             boundedChecker = createBoundedChecker();
         }
 
+        // 4 判断任务启动是否依赖上一次的 checkpoint
         if (nextSnapshotId == null) {
             return tryFirstPlan();
         } else {
@@ -92,6 +101,7 @@ public class InnerStreamTableScanImpl extends AbstractInnerTableScan
     }
 
     private Plan tryFirstPlan() {
+        // 1 获取启动读取表数据扫描器(里面进行数据切片)
         StartingScanner.Result result = startingScanner.scan(snapshotManager, snapshotSplitReader);
         if (result instanceof StartingScanner.ScannedResult) {
             long currentSnapshotId = ((StartingScanner.ScannedResult) result).currentSnapshotId();
@@ -103,7 +113,7 @@ public class InnerStreamTableScanImpl extends AbstractInnerTableScan
             isFullPhaseEnd =
                     snapshotManager.snapshotExists(nextSnapshotId - 1)
                             && boundedChecker.shouldEndInput(
-                                    snapshotManager.snapshot(nextSnapshotId - 1));
+                            snapshotManager.snapshot(nextSnapshotId - 1));
         }
         return DataFilePlan.fromResult(result);
     }
@@ -152,21 +162,26 @@ public class InnerStreamTableScanImpl extends AbstractInnerTableScan
             return new ContinuousCompactorFollowUpScanner();
         }
 
+        // 1 获取读取表属性 key = changelog-producer
         CoreOptions.ChangelogProducer changelogProducer = options.changelogProducer();
         FollowUpScanner followUpScanner;
         switch (changelogProducer) {
             case NONE:
+                // 1.1 changelog-producer = none
                 followUpScanner = new DeltaFollowUpScanner();
                 break;
             case INPUT:
+                // 1.2 changelog-producer = input
                 followUpScanner = new InputChangelogFollowUpScanner();
                 break;
             case FULL_COMPACTION:
+                // 1.3 changelog-producer = full-compaction
                 // this change in data split reader will affect both starting scanner and follow-up
                 snapshotSplitReader.withLevelFilter(level -> level == options.numLevels() - 1);
                 followUpScanner = new CompactionChangelogFollowUpScanner();
                 break;
             case LOOKUP:
+                // 1.4 changelog-producer = lookup
                 // this change in data split reader will affect both starting scanner and follow-up
                 snapshotSplitReader.withLevelFilter(level -> level > 0);
                 followUpScanner = new CompactionChangelogFollowUpScanner();

@@ -24,12 +24,17 @@ import org.apache.paimon.table.source.TableScan;
 
 import java.util.HashMap;
 
-/** Utility methods for {@link TableScan}, such as validating. */
+/**
+ * Utility methods for {@link TableScan}, such as validating.
+ */
 public class TableScanUtils {
 
     public static void streamingReadingValidate(Table table) {
+        // 1 获取表选项属性
         CoreOptions options = CoreOptions.fromMap(table.options());
+        // 2 获取表选项属性 key = merge-engine 默认 value = DEDUPLICATE
         CoreOptions.MergeEngine mergeEngine = options.mergeEngine();
+        // 3 缓存表引擎 (PARTIAL_UPDATE、AGGREGATE)
         HashMap<CoreOptions.MergeEngine, String> mergeEngineDesc =
                 new HashMap<CoreOptions.MergeEngine, String>() {
                     {
@@ -37,6 +42,8 @@ public class TableScanUtils {
                         put(CoreOptions.MergeEngine.AGGREGATE, "Pre-aggregate");
                     }
                 };
+        // 4 如果表定义 Primary-Key 并且表引擎为 PARTIAL_UPDATE、AGGREGATE
+        // 则表的 changelog-producer 必须是 lookup 或者 full-compaction
         if (table.primaryKeys().size() > 0 && mergeEngineDesc.containsKey(mergeEngine)) {
             switch (options.changelogProducer()) {
                 case NONE:

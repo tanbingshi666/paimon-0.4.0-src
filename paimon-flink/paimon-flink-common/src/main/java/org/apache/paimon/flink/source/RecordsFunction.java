@@ -41,6 +41,7 @@ public interface RecordsFunction<T> extends RecordEmitter<T, RowData, FileStoreS
             throws Exception;
 
     static IterateRecordsFunction forIterate() {
+        // 创建 IterateRecordsFunction
         return new IterateRecordsFunction();
     }
 

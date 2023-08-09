@@ -61,7 +61,9 @@ import java.util.stream.Collectors;
 import static org.apache.paimon.utils.FileUtils.listVersionedFiles;
 import static org.apache.paimon.utils.Preconditions.checkState;
 
-/** Schema Manager to manage schema versions. */
+/**
+ * Schema Manager to manage schema versions.
+ */
 public class SchemaManager implements Serializable {
 
     private static final String SCHEMA_PREFIX = "schema-";
@@ -69,7 +71,8 @@ public class SchemaManager implements Serializable {
     private final FileIO fileIO;
     private final Path tableRoot;
 
-    @Nullable private transient Lock lock;
+    @Nullable
+    private transient Lock lock;
 
     public SchemaManager(FileIO fileIO, Path tableRoot) {
         this.fileIO = fileIO;
@@ -81,9 +84,14 @@ public class SchemaManager implements Serializable {
         return this;
     }
 
-    /** @return latest schema. */
+    /**
+     * @return latest schema.
+     */
     public Optional<TableSchema> latest() {
         try {
+            // 读取表目录下的 schema 目录下的所有 schema
+            // 比如 table_name/schema/schema-0, table_name/schema/schema-1
+            // 最终读取 table_name/schema/schema-1 这个文件的 json 内容
             return listVersionedFiles(fileIO, schemaDirectory(), SCHEMA_PREFIX)
                     .reduce(Math::max)
                     .map(this::schema);
@@ -92,12 +100,16 @@ public class SchemaManager implements Serializable {
         }
     }
 
-    /** List all schema. */
+    /**
+     * List all schema.
+     */
     public List<TableSchema> listAll() {
         return listAllIds().stream().map(this::schema).collect(Collectors.toList());
     }
 
-    /** List all schema IDs. */
+    /**
+     * List all schema IDs.
+     */
     public List<Long> listAllIds() {
         try {
             return listVersionedFiles(fileIO, schemaDirectory(), SCHEMA_PREFIX)
@@ -107,16 +119,18 @@ public class SchemaManager implements Serializable {
         }
     }
 
-    /** Create a new schema from {@link Schema}. */
+    /**
+     * Create a new schema from {@link Schema}.
+     */
     public TableSchema createTable(Schema schema) throws Exception {
         while (true) {
             latest().ifPresent(
-                            latest -> {
-                                throw new IllegalStateException(
-                                        "Schema in filesystem exists, please use updating,"
-                                                + " latest schema is: "
-                                                + latest());
-                            });
+                    latest -> {
+                        throw new IllegalStateException(
+                                "Schema in filesystem exists, please use updating,"
+                                        + " latest schema is: "
+                                        + latest());
+                    });
 
             List<DataField> fields = schema.fields();
             List<String> partitionKeys = schema.partitionKeys();
@@ -177,17 +191,21 @@ public class SchemaManager implements Serializable {
         }
     }
 
-    /** Update {@link SchemaChange}s. */
+    /**
+     * Update {@link SchemaChange}s.
+     */
     public TableSchema commitChanges(SchemaChange... changes) throws Exception {
         return commitChanges(Arrays.asList(changes));
     }
 
-    /** Update {@link SchemaChange}s. */
+    /**
+     * Update {@link SchemaChange}s.
+     */
     public TableSchema commitChanges(List<SchemaChange> changes) throws Exception {
         while (true) {
             TableSchema schema =
                     latest().orElseThrow(
-                                    () -> new RuntimeException("Table not exists: " + tableRoot));
+                            () -> new RuntimeException("Table not exists: " + tableRoot));
             Map<String, String> newOptions = new HashMap<>(schema.options());
             List<DataField> newFields = new ArrayList<>(schema.fields());
             AtomicInteger highestFieldId = new AtomicInteger(schema.highestFieldId());
@@ -249,7 +267,7 @@ public class SchemaManager implements Serializable {
 
                     updateNestedColumn(
                             newFields,
-                            new String[] {rename.fieldName()},
+                            new String[]{rename.fieldName()},
                             0,
                             (field) ->
                                     new DataField(
@@ -284,10 +302,10 @@ public class SchemaManager implements Serializable {
                             (field) -> {
                                 checkState(
                                         DataTypeCasts.supportsImplicitCast(
-                                                        field.type(), update.newDataType())
+                                                field.type(), update.newDataType())
                                                 && CastExecutors.resolve(
-                                                                field.type(), update.newDataType())
-                                                        != null,
+                                                field.type(), update.newDataType())
+                                                != null,
                                         String.format(
                                                 "Column type %s[%s] cannot be converted to %s without loosing information.",
                                                 field.name(), field.type(), update.newDataType()));
@@ -398,7 +416,9 @@ public class SchemaManager implements Serializable {
         }
     }
 
-    /** This method is hacky, newFields may be immutable. We should use {@link DataTypeVisitor}. */
+    /**
+     * This method is hacky, newFields may be immutable. We should use {@link DataTypeVisitor}.
+     */
     private void updateNestedColumn(
             List<DataField> newFields,
             String[] updateFieldNames,
@@ -437,7 +457,7 @@ public class SchemaManager implements Serializable {
             List<DataField> newFields,
             String updateFieldName,
             Function<DataField, DataField> updateFunc) {
-        updateNestedColumn(newFields, new String[] {updateFieldName}, 0, updateFunc);
+        updateNestedColumn(newFields, new String[]{updateFieldName}, 0, updateFunc);
     }
 
     @VisibleForTesting
@@ -452,7 +472,9 @@ public class SchemaManager implements Serializable {
         return lock.runWithLock(callable);
     }
 
-    /** Read schema for schema id. */
+    /**
+     * Read schema for schema id.
+     */
     public TableSchema schema(long id) {
         try {
             return JsonSerdeUtil.fromJson(fileIO.readFileUtf8(toSchemaPath(id)), TableSchema.class);

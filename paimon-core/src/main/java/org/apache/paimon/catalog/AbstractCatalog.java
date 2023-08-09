@@ -31,7 +31,9 @@ import org.apache.paimon.utils.StringUtils;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Common implementation of {@link Catalog}. */
+/**
+ * Common implementation of {@link Catalog}.
+ */
 public abstract class AbstractCatalog implements Catalog {
 
     protected static final String DB_SUFFIX = ".db";
@@ -62,6 +64,7 @@ public abstract class AbstractCatalog implements Catalog {
 
     @Override
     public Table getTable(Identifier identifier) throws TableNotExistException {
+        // 获取系统表
         if (isSystemTable(identifier)) {
             String[] splits = tableAndSystemName(identifier);
             String tableName = splits[0];
@@ -74,13 +77,24 @@ public abstract class AbstractCatalog implements Catalog {
             }
             return table;
         } else {
+            // 获取数据表
             return getDataTable(identifier);
         }
     }
 
     private FileStoreTable getDataTable(Identifier identifier) throws TableNotExistException {
+        // 1 获取数据表 schema 信息
         TableSchema tableSchema = getDataTableSchema(identifier);
-        return FileStoreTableFactory.create(fileIO, getDataTableLocation(identifier), tableSchema);
+
+        // 2 创建表存储对象
+        // 一般情况下有两种类型：Append-Only、Primary-Key
+        // Append-Only -> AppendOnlyFileStoreTable
+        // Primary-Key -> ChangelogWithKeyFileStoreTable
+        return FileStoreTableFactory.create(
+                fileIO,
+                // 获取表存储目录 比如 hdfs://namenode:port/paimon/default.db/table_name
+                getDataTableLocation(identifier),
+                tableSchema);
     }
 
     protected Path databasePath(String database) {

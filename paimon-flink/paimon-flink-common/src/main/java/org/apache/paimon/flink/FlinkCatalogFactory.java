@@ -30,6 +30,12 @@ import java.util.Set;
 
 /**
  * Factory for {@link FlinkCatalog}.
+ * Paimon 管理 Catalog 有两种方式：
+ * 1 文件系统方式： FileSystemCatalog
+ * 2 HMS 方式： HiveCatalog
+ * <p>
+ * Paimon 中 FlinkCatalog 封装了 Catalog 的两种具体实现并且提供了
+ * FlinkTableFactory 类 其提供 DynamicTableSourceFactory、DynamicTableSinkFactory
  */
 public class FlinkCatalogFactory implements org.apache.flink.table.factories.CatalogFactory {
 

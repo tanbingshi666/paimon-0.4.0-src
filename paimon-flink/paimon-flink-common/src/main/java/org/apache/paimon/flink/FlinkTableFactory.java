@@ -70,7 +70,10 @@ public class FlinkTableFactory extends AbstractFlinkTableFactory {
                     context.getClassLoader(),
                     context.isTemporary());
         }
+        // 如果用户设置 auto-create 是否为 true 默认 false
         createTableIfNeeded(context);
+
+        // 执行如下创建 Table Source
         return super.createDynamicTableSource(context);
     }
 

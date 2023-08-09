@@ -41,21 +41,26 @@ import java.io.IOException;
 import java.util.LinkedList;
 import java.util.Queue;
 
-/** The {@link SplitReader} implementation for the file store source. */
+/**
+ * The {@link SplitReader} implementation for the file store source.
+ */
 public class FileStoreSourceSplitReader<T> implements SplitReader<T, FileStoreSourceSplit> {
 
     private final RecordsFunction<T> recordsFunction;
 
     private final TableRead tableRead;
 
-    @Nullable private final RecordLimiter limiter;
+    @Nullable
+    private final RecordLimiter limiter;
 
     private final Queue<FileStoreSourceSplit> splits;
 
     private final Pool<FileStoreRecordIterator> pool;
 
-    @Nullable private LazyRecordReader currentReader;
-    @Nullable private String currentSplitId;
+    @Nullable
+    private LazyRecordReader currentReader;
+    @Nullable
+    private String currentSplitId;
     private long currentNumRead;
     private RecordIterator<InternalRow> currentFirstBatch;
 
@@ -67,16 +72,20 @@ public class FileStoreSourceSplitReader<T> implements SplitReader<T, FileStoreSo
         this.tableRead = tableRead;
         this.limiter = limiter;
         this.splits = new LinkedList<>();
+        // 读取数据存储到阻塞队列
         this.pool = new Pool<>(1);
+        // 添加 FileStoreRecordIterator
         this.pool.add(new FileStoreRecordIterator());
     }
 
     @Override
     public RecordsWithSplitIds<T> fetch() throws IOException {
+        // 1 检测读取切片数据 默认每次读取 read.batch-size = 1024
         checkSplitOrStartNext();
 
         // pool first, pool size is 1, the underlying implementation does not allow multiple batches
         // to be read at the same time
+        // 2 从 pool 获取 FileStoreRecordIterator
         FileStoreRecordIterator iterator = pool();
 
         RecordIterator<InternalRow> nextBatch;
@@ -86,10 +95,14 @@ public class FileStoreSourceSplitReader<T> implements SplitReader<T, FileStoreSo
         } else {
             nextBatch = reachLimit() ? null : currentReader.recordReader().readBatch();
         }
+
         if (nextBatch == null) {
             pool.recycler().recycle(iterator);
             return finishSplit();
         }
+
+        // 3 创建 FileRecords 并将读取的数据进行传递到下游进行计算
+        // 读取完数据返回 等待下一次读取
         return recordsFunction.createRecords(currentSplitId, iterator.replace(nextBatch));
     }
 
@@ -119,7 +132,8 @@ public class FileStoreSourceSplitReader<T> implements SplitReader<T, FileStoreSo
     }
 
     @Override
-    public void wakeUp() {}
+    public void wakeUp() {
+    }
 
     @Override
     public void close() throws Exception {
@@ -135,25 +149,37 @@ public class FileStoreSourceSplitReader<T> implements SplitReader<T, FileStoreSo
             return;
         }
 
+        // 1 获取一个切片信息
         final FileStoreSourceSplit nextSplit = splits.poll();
         if (nextSplit == null) {
             throw new IOException("Cannot fetch from another split - no split remaining");
         }
 
+        // 2 设置当前读取切片数据的切片 ID
         currentSplitId = nextSplit.splitId();
+
+        // 3 获取读取切片数据的读取器
         currentReader = new LazyRecordReader(nextSplit.split());
+
+        // 4 获取读取切片数据的到指定偏移量
         currentNumRead = nextSplit.recordsToSkip();
         if (limiter != null) {
             limiter.add(currentNumRead);
         }
+
         if (currentNumRead > 0) {
+            // 5 读取数据到指定位置
             seek(currentNumRead);
         }
     }
 
     private void seek(long toSkip) throws IOException {
         while (true) {
-            RecordIterator<InternalRow> nextBatch = currentReader.recordReader().readBatch();
+
+            // 1 根据切片信息封装读取数据器 RowDataFileRecordReader
+            RecordIterator<InternalRow> nextBatch = currentReader.recordReader()
+                    .readBatch();
+
             if (nextBatch == null) {
                 throw new RuntimeException(
                         String.format(
@@ -162,10 +188,13 @@ public class FileStoreSourceSplitReader<T> implements SplitReader<T, FileStoreSo
             while (toSkip > 0 && nextBatch.next() != null) {
                 toSkip--;
             }
+
             if (toSkip == 0) {
+                // 记录当前读取切片数据的最终位置
                 currentFirstBatch = nextBatch;
                 return;
             }
+
             nextBatch.releaseBatch();
         }
     }
@@ -228,7 +257,9 @@ public class FileStoreSourceSplitReader<T> implements SplitReader<T, FileStoreSo
         }
     }
 
-    /** Lazy to create {@link RecordReader} to improve performance for limit. */
+    /**
+     * Lazy to create {@link RecordReader} to improve performance for limit.
+     */
     private class LazyRecordReader {
 
         private final Split split;
@@ -241,6 +272,7 @@ public class FileStoreSourceSplitReader<T> implements SplitReader<T, FileStoreSo
 
         public RecordReader<InternalRow> recordReader() throws IOException {
             if (lazyRecordReader == null) {
+                // 根据切片信息封装读取数据器 RowDataFileRecordReader
                 lazyRecordReader = tableRead.createReader(split);
             }
             return lazyRecordReader;

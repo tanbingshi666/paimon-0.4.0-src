@@ -25,7 +25,9 @@ import org.apache.paimon.utils.SnapshotManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** {@link StartingScanner} for the {@link CoreOptions.StartupMode#LATEST_FULL} startup mode. */
+/**
+ * {@link StartingScanner} for the {@link CoreOptions.StartupMode#LATEST_FULL} startup mode.
+ */
 public class FullStartingScanner implements StartingScanner {
 
     private static final Logger LOG = LoggerFactory.getLogger(FullStartingScanner.class);
@@ -37,8 +39,10 @@ public class FullStartingScanner implements StartingScanner {
             LOG.debug("There is currently no snapshot. Waiting for snapshot generation.");
             return new NoSnapshot();
         }
+        // 创建 ScannedResult
         return new ScannedResult(
                 startingSnapshotId,
+                // 读取数据切片
                 snapshotSplitReader
                         .withKind(ScanKind.ALL)
                         .withSnapshot(startingSnapshotId)

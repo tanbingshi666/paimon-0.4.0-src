@@ -96,8 +96,7 @@ public class MonitorFunction extends RichSourceFunction<Split>
                                 new ListStateDescriptor<>(
                                         "next-snapshot", LongSerializer.INSTANCE));
 
-        @SuppressWarnings("unchecked")
-        final Class<Tuple2<Long, Long>> typedTuple =
+        @SuppressWarnings("unchecked") final Class<Tuple2<Long, Long>> typedTuple =
                 (Class<Tuple2<Long, Long>>) (Class<?>) Tuple2.class;
         this.nextSnapshotState =
                 context.getOperatorStateStore()
@@ -106,8 +105,8 @@ public class MonitorFunction extends RichSourceFunction<Split>
                                         "next-snapshot-per-checkpoint",
                                         new TupleSerializer<>(
                                                 typedTuple,
-                                                new TypeSerializer[] {
-                                                    LongSerializer.INSTANCE, LongSerializer.INSTANCE
+                                                new TypeSerializer[]{
+                                                        LongSerializer.INSTANCE, LongSerializer.INSTANCE
                                                 })));
 
         this.nextSnapshotPerCheckpoint = new TreeMap<>();
@@ -209,14 +208,26 @@ public class MonitorFunction extends RichSourceFunction<Split>
             TypeInformation<RowData> typeInfo,
             ReadBuilder readBuilder,
             long monitorInterval) {
+        // 创建 Source DataStream
         return env.addSource(
+                        // SourceFunction
                         new MonitorFunction(readBuilder, monitorInterval),
+                        // Source Name
                         name + "-Monitor",
+                        // Source 输出类型
                         new JavaTypeInfo<>(Split.class))
+                // 强制设置并行度为 1 只是单单将 Source 算子并行度设置为 1
                 .forceNonParallel()
+                // 自定义分区
+                // 大概的意思是 根据表一条记录的 bucket 值 % 任务并行度
+                // 假设整个任务的并行度为 8
+                // 比如 一条记录属于 3 号分桶 也即 bucket = 3  则这个数据属于 3 % 8 = 3 分区/并行度
+                // 比如 一条记录属于 1 号分桶 也即 bucket = 1  则这个数据属于 1 % 8 = 1 分区/并行度
                 .partitionCustom(
                         (key, numPartitions) -> key % numPartitions,
-                        split -> ((DataSplit) split).bucket())
+                        split -> ((DataSplit) split).bucket()
+                )
+                // 将 Source 读取到的数据转化为 Flink 内部数据结构 RowData
                 .transform(name + "-Reader", typeInfo, new ReadOperator(readBuilder));
     }
 }

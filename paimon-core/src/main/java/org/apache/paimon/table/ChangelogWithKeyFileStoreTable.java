@@ -59,7 +59,9 @@ import static org.apache.paimon.predicate.PredicateBuilder.pickTransformFieldMap
 import static org.apache.paimon.predicate.PredicateBuilder.splitAnd;
 import static org.apache.paimon.schema.SystemColumns.KEY_FIELD_PREFIX;
 
-/** {@link FileStoreTable} for {@link WriteMode#CHANGE_LOG} write mode with primary keys. */
+/**
+ * {@link FileStoreTable} for {@link WriteMode#CHANGE_LOG} write mode with primary keys.
+ */
 public class ChangelogWithKeyFileStoreTable extends AbstractFileStoreTable {
 
     private static final long serialVersionUID = 1L;
@@ -67,6 +69,7 @@ public class ChangelogWithKeyFileStoreTable extends AbstractFileStoreTable {
     private transient KeyValueFileStore lazyStore;
 
     ChangelogWithKeyFileStoreTable(FileIO fileIO, Path path, TableSchema tableSchema) {
+        // 实例化
         super(fileIO, path, tableSchema);
     }
 
@@ -249,7 +252,8 @@ public class ChangelogWithKeyFileStoreTable extends AbstractFileStoreTable {
         static final ChangelogWithKeyKeyValueFieldsExtractor EXTRACTOR =
                 new ChangelogWithKeyKeyValueFieldsExtractor();
 
-        private ChangelogWithKeyKeyValueFieldsExtractor() {}
+        private ChangelogWithKeyKeyValueFieldsExtractor() {
+        }
 
         @Override
         public List<DataField> keyFields(TableSchema schema) {

@@ -26,7 +26,9 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/** Factory which produces new {@link Path}s for data files. */
+/**
+ * Factory which produces new {@link Path}s for data files.
+ */
 @ThreadSafe
 public class DataFilePathFactory {
 
@@ -41,6 +43,8 @@ public class DataFilePathFactory {
     private final String formatIdentifier;
 
     public DataFilePathFactory(Path root, String partition, int bucket, String formatIdentifier) {
+        // 构建分桶路径
+        // 比如 tablePath + "/" + partition + "/bucket-" + bucket
         this.bucketDir = bucketPath(root, partition, bucket);
         this.uuid = UUID.randomUUID().toString();
 

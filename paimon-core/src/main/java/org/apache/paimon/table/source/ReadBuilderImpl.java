@@ -73,11 +73,13 @@ public class ReadBuilderImpl implements ReadBuilder {
 
     @Override
     public StreamTableScan newStreamScan() {
+        // 创建 InnerStreamTableScanImpl
         return (StreamTableScan) table.newStreamScan().withFilter(filter);
     }
 
     @Override
     public TableRead newRead() {
+        // 创建表读取数据器
         InnerTableRead read = table.newRead().withFilter(filter);
         if (projection != null) {
             read.withProjection(projection);

@@ -66,21 +66,32 @@ public class FlinkSourceBuilder {
 
     private boolean isContinuous = false;
     private StreamExecutionEnvironment env;
-    @Nullable private int[][] projectedFields;
-    @Nullable private Predicate predicate;
-    @Nullable private LogSourceProvider logSourceProvider;
-    @Nullable private Integer parallelism;
-    @Nullable private Long limit;
-    @Nullable private WatermarkStrategy<RowData> watermarkStrategy;
-    @Nullable private List<Split> splits;
+    @Nullable
+    private int[][] projectedFields;
+    @Nullable
+    private Predicate predicate;
+    @Nullable
+    private LogSourceProvider logSourceProvider;
+    @Nullable
+    private Integer parallelism;
+    @Nullable
+    private Long limit;
+    @Nullable
+    private WatermarkStrategy<RowData> watermarkStrategy;
+    @Nullable
+    private List<Split> splits;
 
     public FlinkSourceBuilder(ObjectIdentifier tableIdentifier, Table table) {
+        // 表的唯一标识符
         this.tableIdentifier = tableIdentifier;
+        // 表
         this.table = table;
+        // 表属性选项
         this.conf = Options.fromMap(table.options());
     }
 
     public FlinkSourceBuilder withContinuousMode(boolean isContinuous) {
+        // 是否为流式
         this.isContinuous = isContinuous;
         return this;
     }
@@ -91,21 +102,25 @@ public class FlinkSourceBuilder {
     }
 
     public FlinkSourceBuilder withProjection(int[][] projectedFields) {
+        // 一般情况下为 null
         this.projectedFields = projectedFields;
         return this;
     }
 
     public FlinkSourceBuilder withPredicate(Predicate predicate) {
+        // 一般情况下为 null
         this.predicate = predicate;
         return this;
     }
 
     public FlinkSourceBuilder withLimit(@Nullable Long limit) {
+        // 一般情况下为 null
         this.limit = limit;
         return this;
     }
 
     public FlinkSourceBuilder withLogSourceProvider(LogSourceProvider logSourceProvider) {
+        // 一般情况下为 null
         this.logSourceProvider = logSourceProvider;
         return this;
     }
@@ -117,6 +132,7 @@ public class FlinkSourceBuilder {
 
     public FlinkSourceBuilder withWatermarkStrategy(
             @Nullable WatermarkStrategy<RowData> watermarkStrategy) {
+        // 如果表定义了 watermark
         this.watermarkStrategy = watermarkStrategy;
         return this;
     }
@@ -127,7 +143,9 @@ public class FlinkSourceBuilder {
     }
 
     private ReadBuilder createReadBuilder() {
-        return table.newReadBuilder().withProjection(projectedFields).withFilter(predicate);
+        return table.newReadBuilder()
+                .withProjection(projectedFields)
+                .withFilter(predicate);
     }
 
     private DataStream<RowData> buildStaticFileSource() {
@@ -141,19 +159,34 @@ public class FlinkSourceBuilder {
     }
 
     private DataStream<RowData> buildContinuousFileSource() {
+        // 创建 Source DataStream 读取 Paimon 表数据
         return toDataStream(
-                new ContinuousFileStoreSource(createReadBuilder(), table.options(), limit));
+                // 创建 ContinuousFileStoreSource
+                new ContinuousFileStoreSource(
+                        // 创建 ReadBuilderImpl
+                        createReadBuilder(),
+                        table.options(),
+                        limit));
     }
 
-    private DataStream<RowData> toDataStream(Source<RowData, ?, ?> source) {
+    private DataStream<RowData> toDataStream(
+            // ContinuousFileStoreSource
+            Source<RowData, ?, ?> source) {
+        // 创建 Source DataStream
         DataStreamSource<RowData> dataStream =
                 env.fromSource(
+                        // SourceFunction
                         source,
+                        // watermark 生成策略
                         watermarkStrategy == null
                                 ? WatermarkStrategy.noWatermarks()
                                 : watermarkStrategy,
+                        // Source Name
                         tableIdentifier.asSummaryString(),
+                        // Source 输出数据类型
                         produceTypeInfo());
+
+        // 如果存在并行度 则设置
         if (parallelism != null) {
             dataStream.setParallelism(parallelism);
         }
@@ -175,13 +208,23 @@ public class FlinkSourceBuilder {
             throw new IllegalArgumentException("StreamExecutionEnvironment should not be null.");
         }
 
+        // 1 判断执行 Flink 任务为流式还是批次
         if (isContinuous) {
+
+            // 2 校验表流读模式是否合法
+            // 也即校验 Primary-Key表的 merge-engine 和 changelog-producer 是否合法
             TableScanUtils.streamingReadingValidate(table);
 
             // TODO visit all options through CoreOptions
+            // 3 获取读取表数据模式 key = scan.mode 默认 value = default (全增量一体 LATEST_FULL)
+            // 还可以配置其他读取模式
             StartupMode startupMode = CoreOptions.startupMode(conf);
+
+            // 4 获取流读模式 key = streaming-read-mode 默认 value = null
+            // 有两种情况：FILE、LOG
             StreamingReadMode streamingReadMode = CoreOptions.streamReadType(conf);
 
+            // 这种情况一般是读取 log system 数据 比如 kafka
             if (logSourceProvider != null && streamingReadMode != FILE) {
                 if (startupMode != StartupMode.LATEST_FULL) {
                     return toDataStream(logSourceProvider.createSource(null));
@@ -196,9 +239,12 @@ public class FlinkSourceBuilder {
                                     .build());
                 }
             } else {
+                // 5 判断读取数据的时候是否添加了 consumer-id hint 选项
                 if (conf.contains(CoreOptions.CONSUMER_ID)) {
+                    // 5.1 有 consumer-id 情况下读取表数据
                     return buildContinuousStreamOperator();
                 } else {
+                    // 5.2 没有 consumer-id 情况下读取表数据
                     return buildContinuousFileSource();
                 }
             }
@@ -213,19 +259,31 @@ public class FlinkSourceBuilder {
             throw new IllegalArgumentException(
                     "Cannot limit streaming source, please use batch execution mode.");
         }
+        // 构建 Source DataStream
         dataStream =
                 MonitorFunction.buildSource(
+                        // 流式执行环境 StreamExecutionEnvironment
                         env,
+                        // Source 名字
                         tableIdentifier.asSummaryString(),
+                        // Source 输出类型
                         produceTypeInfo(),
+                        // 读取数据器 ReadBuilderImpl
                         createReadBuilder(),
+                        // key = continuous.discovery-interval 默认 value = 10s
                         conf.get(CoreOptions.CONTINUOUS_DISCOVERY_INTERVAL).toMillis());
+
+        // 并行度不为 null
         if (parallelism != null) {
             dataStream.getTransformation().setParallelism(parallelism);
         }
+
+        // 设置 Source watermark 生成策略
         if (watermarkStrategy != null) {
             dataStream = dataStream.assignTimestampsAndWatermarks(watermarkStrategy);
         }
+
+        // 返回 Source DataStream
         return dataStream;
     }
 }

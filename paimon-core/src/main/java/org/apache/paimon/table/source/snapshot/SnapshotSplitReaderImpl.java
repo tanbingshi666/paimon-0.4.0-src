@@ -46,7 +46,9 @@ import java.util.function.BiConsumer;
 
 import static org.apache.paimon.predicate.PredicateBuilder.transformFieldMapping;
 
-/** Implementation of {@link SnapshotSplitReader}. */
+/**
+ * Implementation of {@link SnapshotSplitReader}.
+ */
 public class SnapshotSplitReaderImpl implements SnapshotSplitReader {
 
     private final FileStoreScan scan;
@@ -136,14 +138,21 @@ public class SnapshotSplitReaderImpl implements SnapshotSplitReader {
         return this;
     }
 
-    /** Get splits from {@link FileKind#ADD} files. */
+    /**
+     * Get splits from {@link FileKind#ADD} files.
+     */
     @Override
     public List<DataSplit> splits() {
+        // 1 获取 Plan 也即读取 snapshot + manifests 文件
         FileStoreScan.Plan plan = scan.plan();
         Long snapshotId = plan.snapshotId();
 
+        // 2 按照分区 + 分桶组织数据元数据
         Map<BinaryRow, Map<Integer, List<DataFileMeta>>> files =
                 FileStoreScan.Plan.groupByPartFiles(plan.files(FileKind.ADD));
+
+        // key = scan.plan-sort-partition 默认 value = false
+        // 如果设置了 true 则需要排序
         if (options.scanPlanSortPartition()) {
             Map<BinaryRow, Map<Integer, List<DataFileMeta>>> newFiles = new LinkedHashMap<>();
             files.entrySet().stream()
@@ -151,6 +160,8 @@ public class SnapshotSplitReaderImpl implements SnapshotSplitReader {
                     .forEach(entry -> newFiles.put(entry.getKey(), entry.getValue()));
             files = newFiles;
         }
+
+        // 3 生成切片
         return generateSplits(
                 snapshotId == null ? Snapshot.FIRST_SNAPSHOT_ID - 1 : snapshotId,
                 scanKind != ScanKind.ALL,
@@ -213,12 +224,22 @@ public class SnapshotSplitReaderImpl implements SnapshotSplitReader {
             SplitGenerator splitGenerator,
             Map<BinaryRow, Map<Integer, List<DataFileMeta>>> groupedDataFiles) {
         List<DataSplit> splits = new ArrayList<>();
+
+        // 1 遍历分区+分桶
         for (Map.Entry<BinaryRow, Map<Integer, List<DataFileMeta>>> entry :
                 groupedDataFiles.entrySet()) {
+            // 1.1 获取分区
             BinaryRow partition = entry.getKey();
+
+            // 1.2 获取分区下的所有桶以及桶对应的数据文件集合
             Map<Integer, List<DataFileMeta>> buckets = entry.getValue();
+
+            // 1.3 遍历每个桶
             for (Map.Entry<Integer, List<DataFileMeta>> bucketEntry : buckets.entrySet()) {
+                // 1.3.1 获取桶编号
                 int bucket = bucketEntry.getKey();
+
+                // 1.3.2 如果当前除了增量数据 则不需要切片
                 if (isIncremental) {
                     // Don't split when incremental
                     splits.add(
@@ -230,7 +251,9 @@ public class SnapshotSplitReaderImpl implements SnapshotSplitReader {
                                     true,
                                     reverseRowKind));
                 } else {
-                    splitGenerator.split(bucketEntry.getValue()).stream()
+                    // 1.4 根据每个桶下的数据文件集合执行切片
+                    splitGenerator.split(bucketEntry.getValue())
+                            .stream()
                             .map(
                                     files ->
                                             new DataSplit(

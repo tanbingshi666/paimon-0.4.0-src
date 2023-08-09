@@ -53,7 +53,9 @@ import java.util.stream.Collectors;
 
 import static org.apache.paimon.utils.Preconditions.checkArgument;
 
-/** Default implementation of {@link FileStoreScan}. */
+/**
+ * Default implementation of {@link FileStoreScan}.
+ */
 public abstract class AbstractFileStoreScan implements FileStoreScan {
 
     private final FieldStatsArraySerializer partitionStatsConverter;
@@ -204,7 +206,10 @@ public abstract class AbstractFileStoreScan implements FileStoreScan {
             if (snapshotId == null) {
                 manifests = Collections.emptyList();
             } else {
+                // 1 读取指定 snapshot 文件 JSON 内容
+                // 格式为: {table_name_dir}/snapshot/snapshot-{snapshotId}
                 Snapshot snapshot = snapshotManager.snapshot(snapshotId);
+                // 2 根据 snapshot 内容读取 manifests
                 manifests = readManifests(snapshot);
             }
         }
@@ -235,11 +240,11 @@ public abstract class AbstractFileStoreScan implements FileStoreScan {
                 String partInfo =
                         partitionConverter.getArity() > 0
                                 ? "partition "
-                                        + FileStorePathFactory.getPartitionComputer(
-                                                        partitionConverter.rowType(),
-                                                        FileStorePathFactory.PARTITION_DEFAULT_NAME
-                                                                .defaultValue())
-                                                .generatePartValues(file.partition())
+                                + FileStorePathFactory.getPartitionComputer(
+                                        partitionConverter.rowType(),
+                                        FileStorePathFactory.PARTITION_DEFAULT_NAME
+                                                .defaultValue())
+                                .generatePartValues(file.partition())
                                 : "table";
                 throw new RuntimeException(
                         String.format(
@@ -302,46 +307,62 @@ public abstract class AbstractFileStoreScan implements FileStoreScan {
     // called by multiple threads
     // ------------------------------------------------------------------------
 
-    /** Note: Keep this thread-safe. */
+    /**
+     * Note: Keep this thread-safe.
+     */
     protected TableSchema scanTableSchema(long id) {
         return tableSchemas.computeIfAbsent(id, key -> schemaManager.schema(id));
     }
 
-    /** Note: Keep this thread-safe. */
+    /**
+     * Note: Keep this thread-safe.
+     */
     private boolean filterManifestFileMeta(ManifestFileMeta manifest) {
         return partitionFilter == null
                 || partitionFilter.test(
-                        manifest.numAddedFiles() + manifest.numDeletedFiles(),
-                        manifest.partitionStats().fields(partitionStatsConverter));
+                manifest.numAddedFiles() + manifest.numDeletedFiles(),
+                manifest.partitionStats().fields(partitionStatsConverter));
     }
 
-    /** Note: Keep this thread-safe. */
+    /**
+     * Note: Keep this thread-safe.
+     */
     private boolean filterByBucket(ManifestEntry entry) {
         return (specifiedBucket == null || entry.bucket() == specifiedBucket);
     }
 
-    /** Note: Keep this thread-safe. */
+    /**
+     * Note: Keep this thread-safe.
+     */
     private boolean filterByBucketSelector(ManifestEntry entry) {
         return (bucketSelector == null
                 || bucketSelector.select(entry.bucket(), entry.totalBuckets()));
     }
 
-    /** Note: Keep this thread-safe. */
+    /**
+     * Note: Keep this thread-safe.
+     */
     private boolean filterByLevel(ManifestEntry entry) {
         return (levelFilter == null || levelFilter.test(entry.file().level()));
     }
 
-    /** Note: Keep this thread-safe. */
+    /**
+     * Note: Keep this thread-safe.
+     */
     protected abstract boolean filterByStats(ManifestEntry entry);
 
-    /** Note: Keep this thread-safe. */
+    /**
+     * Note: Keep this thread-safe.
+     */
     private List<ManifestEntry> readManifestFileMeta(ManifestFileMeta manifest) {
         return manifestFileFactory
                 .create()
                 .read(manifest.fileName(), manifestCacheRowFilter(), manifestEntryRowFilter());
     }
 
-    /** Note: Keep this thread-safe. */
+    /**
+     * Note: Keep this thread-safe.
+     */
     private Filter<InternalRow> manifestEntryRowFilter() {
         Function<InternalRow, BinaryRow> partitionGetter =
                 ManifestEntrySerializer.partitionGetter();
@@ -351,7 +372,7 @@ public abstract class AbstractFileStoreScan implements FileStoreScan {
         return row -> {
             if ((partitionFilter != null
                     && !partitionFilter.test(
-                            partitionConverter.convert(partitionGetter.apply(row))))) {
+                    partitionConverter.convert(partitionGetter.apply(row))))) {
                 return false;
             }
 
@@ -363,7 +384,9 @@ public abstract class AbstractFileStoreScan implements FileStoreScan {
         };
     }
 
-    /** Note: Keep this thread-safe. */
+    /**
+     * Note: Keep this thread-safe.
+     */
     private Filter<InternalRow> manifestCacheRowFilter() {
         if (manifestCacheFilter == null) {
             return Filter.alwaysTrue();

@@ -45,7 +45,9 @@ import org.apache.paimon.utils.Preconditions;
 import java.io.IOException;
 import java.util.function.BiConsumer;
 
-/** {@link FileStoreTable} for {@link WriteMode#APPEND_ONLY} write mode. */
+/**
+ * {@link FileStoreTable} for {@link WriteMode#APPEND_ONLY} write mode.
+ */
 public class AppendOnlyFileStoreTable extends AbstractFileStoreTable {
 
     private static final long serialVersionUID = 1L;
@@ -53,6 +55,7 @@ public class AppendOnlyFileStoreTable extends AbstractFileStoreTable {
     private transient AppendOnlyFileStore lazyStore;
 
     AppendOnlyFileStoreTable(FileIO fileIO, Path path, TableSchema tableSchema) {
+        // 实例化
         super(fileIO, path, tableSchema);
     }
 
@@ -64,6 +67,7 @@ public class AppendOnlyFileStoreTable extends AbstractFileStoreTable {
     @Override
     public AppendOnlyFileStore store() {
         if (lazyStore == null) {
+            // 创建 AppendOnlyFileStore
             lazyStore =
                     new AppendOnlyFileStore(
                             fileIO,
@@ -101,6 +105,7 @@ public class AppendOnlyFileStoreTable extends AbstractFileStoreTable {
 
     @Override
     public InnerTableRead newRead() {
+        // 创建 AppendOnlyFileStoreRead
         AppendOnlyFileStoreRead read = store().newRead();
         return new InnerTableRead() {
             @Override
@@ -117,6 +122,7 @@ public class AppendOnlyFileStoreTable extends AbstractFileStoreTable {
 
             @Override
             public RecordReader<InternalRow> createReader(Split split) throws IOException {
+                // 根据切片信息封装读取数据器 RowDataFileRecordReader
                 return read.createReader((DataSplit) split);
             }
         };

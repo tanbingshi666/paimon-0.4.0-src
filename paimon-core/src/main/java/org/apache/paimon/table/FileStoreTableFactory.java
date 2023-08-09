@@ -32,7 +32,9 @@ import java.io.UncheckedIOException;
 
 import static org.apache.paimon.CoreOptions.PATH;
 
-/** Factory to create {@link FileStoreTable}. */
+/**
+ * Factory to create {@link FileStoreTable}.
+ */
 public class FileStoreTableFactory {
 
     public static FileStoreTable create(CatalogContext context) {
@@ -66,27 +68,67 @@ public class FileStoreTableFactory {
     }
 
     public static FileStoreTable create(FileIO fileIO, Path tablePath, TableSchema tableSchema) {
+        // 创建 FileStoreTable
         return create(fileIO, tablePath, tableSchema, new Options());
     }
 
     public static FileStoreTable create(
-            FileIO fileIO, Path tablePath, TableSchema tableSchema, Options dynamicOptions) {
+            FileIO fileIO,
+            Path tablePath,
+            TableSchema tableSchema,
+            Options dynamicOptions) {
+        /**
+         * {
+         *   "id" : 0,
+         *   "fields" : [ {
+         *     "id" : 0,
+         *     "name" : "id",
+         *     "type" : "BIGINT NOT NULL"
+         *   }, {
+         *     "id" : 1,
+         *     "name" : "a",
+         *     "type" : "INT"
+         *   }, {
+         *     "id" : 2,
+         *     "name" : "b",
+         *     "type" : "STRING"
+         *   }, {
+         *     "id" : 3,
+         *     "name" : "dt",
+         *     "type" : "STRING NOT NULL"
+         *   } ],
+         *   "highestFieldId" : 3,
+         *   "partitionKeys" : [ "dt" ],
+         *   "primaryKeys" : [ "id", "dt" ],
+         *   "options" : { }
+         * }
+         */
+
         FileStoreTable table;
+        // 1 获取表 with 属性
         Options coreOptions = Options.fromMap(tableSchema.options());
+
+        // 2 获取表属性 key = write-mode 默认 auto
         WriteMode writeMode = coreOptions.get(CoreOptions.WRITE_MODE);
         if (writeMode == WriteMode.AUTO) {
+            // 2.1 判断表创建的时候是否指定 PRIMARY KEY
+            // 如果指定 那么该表写模式 CHANGE_LOG 否则为 APPEND_ONLY
             writeMode =
                     tableSchema.primaryKeys().isEmpty()
                             ? WriteMode.APPEND_ONLY
                             : WriteMode.CHANGE_LOG;
             coreOptions.set(CoreOptions.WRITE_MODE, writeMode);
         }
+
+        // 3 根据表写模式创建对应的 FileStoreTable
         if (writeMode == WriteMode.APPEND_ONLY) {
+            // 3.1 创建 APPEND_ONLY 表 FileStoreTable
             table = new AppendOnlyFileStoreTable(fileIO, tablePath, tableSchema);
         } else {
             if (tableSchema.primaryKeys().isEmpty()) {
                 table = new ChangelogValueCountFileStoreTable(fileIO, tablePath, tableSchema);
             } else {
+                // 3.2 创建 CHANGE_LOG 表 FileStoreTable
                 table = new ChangelogWithKeyFileStoreTable(fileIO, tablePath, tableSchema);
             }
         }

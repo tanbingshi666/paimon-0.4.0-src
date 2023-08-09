@@ -38,7 +38,9 @@ import java.util.Map;
 
 import static org.apache.paimon.flink.FlinkConnectorOptions.STREAMING_READ_ATOMIC;
 
-/** Unbounded {@link FlinkSource} for reading records. It continuously monitors new snapshots. */
+/**
+ * Unbounded {@link FlinkSource} for reading records. It continuously monitors new snapshots.
+ */
 public class ContinuousFileStoreSource extends FlinkSource {
 
     private static final long serialVersionUID = 3L;
@@ -48,6 +50,7 @@ public class ContinuousFileStoreSource extends FlinkSource {
     public ContinuousFileStoreSource(
             ReadBuilder readBuilder, Map<String, String> options, @Nullable Long limit) {
         super(readBuilder, limit);
+        // 表属性选项
         this.options = options;
     }
 
@@ -60,32 +63,49 @@ public class ContinuousFileStoreSource extends FlinkSource {
     public SplitEnumerator<FileStoreSourceSplit, PendingSplitsCheckpoint> restoreEnumerator(
             SplitEnumeratorContext<FileStoreSourceSplit> context,
             PendingSplitsCheckpoint checkpoint) {
+
+        // 如下创建 SplitEnumerator 组件进行数据切片
+
         Long nextSnapshotId = null;
+        // 1 如果任务基于上一次 checkpoint 恢复
         Collection<FileStoreSourceSplit> splits = new ArrayList<>();
         if (checkpoint != null) {
             nextSnapshotId = checkpoint.currentSnapshotId();
             splits = checkpoint.splits();
         }
+
+        // 2 获取表选项属性
         CoreOptions coreOptions = CoreOptions.fromMap(options);
+
+        // 3 实例化 InnerStreamTableScanImpl
         StreamTableScan scan = readBuilder.newStreamScan();
         scan.restore(nextSnapshotId);
+
+        // 4 创建 ContinuousFileSplitEnumerator
+        // 该 SplitEnumerator 负责任务数据切片以及分配切片给 SourceReader
         return new ContinuousFileSplitEnumerator(
                 context,
                 splits,
                 nextSnapshotId,
                 coreOptions.continuousDiscoveryInterval().toMillis(),
-                coreOptions
-                        .toConfiguration()
-                        .get(FlinkConnectorOptions.SCAN_SPLIT_ENUMERATOR_BATCH_SIZE),
+                coreOptions.toConfiguration().get(FlinkConnectorOptions.SCAN_SPLIT_ENUMERATOR_BATCH_SIZE),
                 scan);
     }
 
     @Override
     public FileStoreSourceReader<?> createSourceReader(
             SourceReaderContext context, TableRead read, @Nullable Long limit) {
+
+        // 如下创建 SourceReader
+
+        // key = streaming-read-atomic 默认 value = false
         return Options.fromMap(options).get(STREAMING_READ_ATOMIC)
                 ? new FileStoreSourceReader<>(RecordsFunction.forSingle(), context, read, limit)
-                : new FileStoreSourceReader<>(RecordsFunction.forIterate(), context, read, limit);
+                // 创建 FileStoreSourceReader
+                : new FileStoreSourceReader<>(
+                // 创建 IterateRecordsFunction
+                RecordsFunction.forIterate(),
+                context, read, limit);
     }
 
     private boolean isBounded() {

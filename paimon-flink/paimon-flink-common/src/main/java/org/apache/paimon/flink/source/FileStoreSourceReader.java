@@ -29,16 +29,19 @@ import javax.annotation.Nullable;
 
 import java.util.Map;
 
-/** A {@link SourceReader} that read records from {@link FileStoreSourceSplit}. */
+/**
+ * A {@link SourceReader} that read records from {@link FileStoreSourceSplit}.
+ */
 public final class FileStoreSourceReader<T>
         extends SingleThreadMultiplexSourceReaderBase<
-                T, RowData, FileStoreSourceSplit, FileStoreSourceSplitState> {
+        T, RowData, FileStoreSourceSplit, FileStoreSourceSplitState> {
 
     public FileStoreSourceReader(
             RecordsFunction<T> recordsFunction,
             SourceReaderContext readerContext,
             TableRead tableRead,
             @Nullable Long limit) {
+        // 往下追
         this(
                 recordsFunction,
                 readerContext,
@@ -52,7 +55,9 @@ public final class FileStoreSourceReader<T>
             TableRead tableRead,
             @Nullable RecordLimiter limiter) {
         // limiter is created in SourceReader, it can be shared in all split readers
+        // 往下追
         super(
+                // 创建 FileStoreSourceSplitReader 也即根据切片信息读取数据
                 () -> new FileStoreSourceSplitReader<>(recordsFunction, tableRead, limiter),
                 recordsFunction,
                 readerContext.getConfiguration(),
@@ -62,6 +67,7 @@ public final class FileStoreSourceReader<T>
     @Override
     public void start() {
         // we request a split only if we did not get splits during the checkpoint restore
+        // 如果当前 SourceReader Task 没有切片可读取 则项 SlitEnumerator 发送请求 Split
         if (getNumberOfCurrentlyAssignedSplits() == 0) {
             context.sendSplitRequest();
         }

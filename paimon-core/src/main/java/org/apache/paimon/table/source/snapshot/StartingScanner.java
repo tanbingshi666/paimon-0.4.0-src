@@ -24,24 +24,36 @@ import org.apache.paimon.utils.SnapshotManager;
 
 import java.util.List;
 
-/** Helper class for the first planning of {@link TableScan}. */
+/**
+ * Helper class for the first planning of {@link TableScan}.
+ */
 public interface StartingScanner {
 
     Result scan(SnapshotManager snapshotManager, SnapshotSplitReader snapshotSplitReader);
 
-    /** Scan result of {@link #scan}. */
-    interface Result {}
+    /**
+     * Scan result of {@link #scan}.
+     */
+    interface Result {
+    }
 
-    /** Currently, there is no snapshot, need to wait for the snapshot to be generated. */
-    class NoSnapshot implements Result {}
+    /**
+     * Currently, there is no snapshot, need to wait for the snapshot to be generated.
+     */
+    class NoSnapshot implements Result {
+    }
 
-    /** Result with scanned snapshot. Next snapshot should be the current snapshot plus 1. */
+    /**
+     * Result with scanned snapshot. Next snapshot should be the current snapshot plus 1.
+     */
     class ScannedResult implements Result {
         private final long currentSnapshotId;
         private final List<DataSplit> splits;
 
         public ScannedResult(long currentSnapshotId, List<DataSplit> splits) {
+            // 当前 snapshot ID
             this.currentSnapshotId = currentSnapshotId;
+            // 切片信息
             this.splits = splits;
         }
 

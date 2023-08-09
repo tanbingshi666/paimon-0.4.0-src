@@ -206,10 +206,16 @@ public class HiveCatalog extends AbstractCatalog {
 
     @Override
     public TableSchema getDataTableSchema(Identifier identifier) throws TableNotExistException {
+        // 1 查询 HMS 判断表是否存在
         if (!paimonTableExists(identifier)) {
             throw new TableNotExistException(identifier);
         }
+        // 2 拼接数据表路径
+        // 比如 hdfs://namenode:port/paimon/default.db/table_name
         Path tableLocation = getDataTableLocation(identifier);
+
+        // 3 创建 schema 管理 SchemaManager
+        // 也即读取表的 schema 信息
         return new SchemaManager(fileIO, tableLocation)
                 .latest()
                 .orElseThrow(() -> new RuntimeException("There is no paimond in " + tableLocation));

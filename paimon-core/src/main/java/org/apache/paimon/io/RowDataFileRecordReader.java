@@ -30,12 +30,16 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 
-/** Reads {@link InternalRow} from data files. */
+/**
+ * Reads {@link InternalRow} from data files.
+ */
 public class RowDataFileRecordReader implements RecordReader<InternalRow> {
 
     private final RecordReader<InternalRow> reader;
-    @Nullable private final int[] indexMapping;
-    @Nullable private final CastFieldGetter[] castMapping;
+    @Nullable
+    private final int[] indexMapping;
+    @Nullable
+    private final CastFieldGetter[] castMapping;
 
     public RowDataFileRecordReader(
             FileIO fileIO,
@@ -44,6 +48,7 @@ public class RowDataFileRecordReader implements RecordReader<InternalRow> {
             @Nullable int[] indexMapping,
             @Nullable CastFieldGetter[] castMapping)
             throws IOException {
+        // 真正读取数据器 OrcVectorizedReader
         this.reader = FileUtils.createFormatReader(fileIO, readerFactory, path);
         this.indexMapping = indexMapping;
         this.castMapping = castMapping;
@@ -52,6 +57,7 @@ public class RowDataFileRecordReader implements RecordReader<InternalRow> {
     @Nullable
     @Override
     public RecordReader.RecordIterator<InternalRow> readBatch() throws IOException {
+        // 读取数据
         RecordIterator<InternalRow> iterator = reader.readBatch();
         return iterator == null
                 ? null

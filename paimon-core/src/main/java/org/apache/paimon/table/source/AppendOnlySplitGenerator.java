@@ -27,21 +27,28 @@ import java.util.function.Function;
 
 import static org.apache.paimon.append.AppendOnlyCompactManager.fileComparator;
 
-/** Append only implementation of {@link SplitGenerator}. */
+/**
+ * Append only implementation of {@link SplitGenerator}.
+ */
 public class AppendOnlySplitGenerator implements SplitGenerator {
 
     private final long targetSplitSize;
     private final long openFileCost;
 
     public AppendOnlySplitGenerator(long targetSplitSize, long openFileCost) {
+        // 128MB
         this.targetSplitSize = targetSplitSize;
+        // 4MB
         this.openFileCost = openFileCost;
     }
 
     @Override
     public List<List<DataFileMeta>> split(List<DataFileMeta> input) {
+        // 这个 input 就是每个桶的数据文件
         List<DataFileMeta> files = new ArrayList<>(input);
+        // 根据数据文件的 SequenceNumber 进行排序
         files.sort(fileComparator(false));
+        // 执行文件切片划分
         Function<DataFileMeta, Long> weightFunc = file -> Math.max(file.fileSize(), openFileCost);
         return OrderedPacking.pack(files, weightFunc, targetSplitSize);
     }

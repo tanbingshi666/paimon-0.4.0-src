@@ -46,7 +46,9 @@ import java.util.Set;
 import static org.apache.paimon.utils.Preconditions.checkArgument;
 import static org.apache.paimon.utils.Preconditions.checkNotNull;
 
-/** A continuously monitoring enumerator. */
+/**
+ * A continuously monitoring enumerator.
+ */
 public class ContinuousFileSplitEnumerator
         implements SplitEnumerator<FileStoreSourceSplit, PendingSplitsCheckpoint> {
 
@@ -64,10 +66,13 @@ public class ContinuousFileSplitEnumerator
 
     private final StreamTableScan scan;
 
-    /** Default batch splits size to avoid exceed `akka.framesize`. */
+    /**
+     * Default batch splits size to avoid exceed `akka.framesize`.
+     */
     private final int splitBatchSize;
 
-    @Nullable private Long nextSnapshotId;
+    @Nullable
+    private Long nextSnapshotId;
 
     private boolean finished = false;
 
@@ -112,7 +117,11 @@ public class ContinuousFileSplitEnumerator
 
     @Override
     public void start() {
-        context.callAsync(scan::plan, this::processDiscoveredSplits, 0, discoveryInterval);
+        context.callAsync(
+                // 1 进行数据切片
+                scan::plan,
+                // 2 进行数据切片分配
+                this::processDiscoveredSplits, 0, discoveryInterval);
     }
 
     @Override
@@ -174,11 +183,15 @@ public class ContinuousFileSplitEnumerator
             return;
         }
 
+        // 1 创建切片信息 (已经切片好了 存储在 Plan)
+        // 也即往 bucketSplits 添加
         addSplits(splitGenerator.createSplits(plan));
+        // 2 执行切片分配
         assignSplits();
     }
 
     private void assignSplits() {
+        // 1 执行分配切片信息
         Map<Integer, List<FileStoreSourceSplit>> assignment = createAssignment();
         if (finished) {
             Iterator<Integer> iterator = readersAwaitingSplit.iterator();
@@ -191,11 +204,14 @@ public class ContinuousFileSplitEnumerator
             }
         }
         assignment.keySet().forEach(readersAwaitingSplit::remove);
+
+        // 2 SplitEnumerator 接收到切片 后续给下游的 SourceReader 分配切片读取数据
         context.assignSplits(new SplitsAssignment<>(assignment));
     }
 
     private Map<Integer, List<FileStoreSourceSplit>> createAssignment() {
         Map<Integer, List<FileStoreSourceSplit>> assignment = new HashMap<>();
+        // bucketSplits 维护了每个桶下的所有切片信息
         bucketSplits.forEach(
                 (bucket, splits) -> {
                     if (splits.size() > 0) {

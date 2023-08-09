@@ -41,7 +41,9 @@ import java.util.Optional;
 
 import static org.apache.paimon.CoreOptions.FULL_COMPACTION_DELTA_COMMITS;
 
-/** An abstraction layer above {@link FileStoreScan} to provide input split generation. */
+/**
+ * An abstraction layer above {@link FileStoreScan} to provide input split generation.
+ */
 public abstract class AbstractInnerTableScan implements InnerTableScan {
 
     private final CoreOptions options;
@@ -70,15 +72,22 @@ public abstract class AbstractInnerTableScan implements InnerTableScan {
         }
 
         // read from consumer id
+        // 1 读取 consumer-id 值
         String consumerId = options.consumerId();
+        // 1.1 如果 consumer-id 存在
         if (consumerId != null) {
+            // 1.2 获取消费者管理者 ConsumerManager
             ConsumerManager consumerManager = snapshotSplitReader.consumerManager();
+            // 1.3 判断消费者路径以及内容是否存在
             Optional<Consumer> consumer = consumerManager.consumer(consumerId);
             if (consumer.isPresent()) {
+                // 1.4 如果上一次 consumer_id 存在 则直接根据 consumer_id 继续消费表数据
                 return new ContinuousFromSnapshotStartingScanner(consumer.get().nextSnapshot());
             }
         }
 
+        // 2 如果没有 consumer_id 那么一般情况下基于全增量一体读取表数据 也即启动模式为 LATEST_FULL
+        // 默认返回 FullStartingScanner
         CoreOptions.StartupMode startupMode = options.startupMode();
         switch (startupMode) {
             case LATEST_FULL:

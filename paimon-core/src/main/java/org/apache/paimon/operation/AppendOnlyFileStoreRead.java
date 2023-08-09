@@ -49,7 +49,9 @@ import java.util.Map;
 
 import static org.apache.paimon.predicate.PredicateBuilder.splitAnd;
 
-/** {@link FileStoreRead} for {@link AppendOnlyFileStore}. */
+/**
+ * {@link FileStoreRead} for {@link AppendOnlyFileStore}.
+ */
 public class AppendOnlyFileStoreRead implements FileStoreRead<InternalRow> {
 
     private final FileIO fileIO;
@@ -62,7 +64,8 @@ public class AppendOnlyFileStoreRead implements FileStoreRead<InternalRow> {
 
     private int[][] projection;
 
-    @Nullable private List<Predicate> filters;
+    @Nullable
+    private List<Predicate> filters;
 
     public AppendOnlyFileStoreRead(
             FileIO fileIO,
@@ -95,17 +98,30 @@ public class AppendOnlyFileStoreRead implements FileStoreRead<InternalRow> {
 
     @Override
     public RecordReader<InternalRow> createReader(DataSplit split) throws IOException {
+        // 1 构建读取数据路径
         DataFilePathFactory dataFilePathFactory =
-                pathFactory.createDataFilePathFactory(split.partition(), split.bucket());
+                pathFactory.createDataFilePathFactory(
+                        // 读取数据分区
+                        split.partition(),
+                        // 读取数据分桶
+                        split.bucket()
+                );
+
         List<ConcatRecordReader.ReaderSupplier<InternalRow>> suppliers = new ArrayList<>();
+
+        // 2 遍历切片读取哪些数据
         for (DataFileMeta file : split.files()) {
+            // 2.1 解析读取文件的后缀名 比如 orc
             String formatIdentifier = DataFilePathFactory.formatIdentifier(file.fileName());
+
+            // 2.2 缓存
             BulkFormatMapping bulkFormatMapping =
                     bulkFormatMappings.computeIfAbsent(
                             new FormatKey(file.schemaId(), formatIdentifier),
                             key -> {
                                 TableSchema tableSchema = schemaManager.schema(this.schemaId);
                                 TableSchema dataSchema = schemaManager.schema(key.schemaId);
+
                                 int[][] dataProjection =
                                         SchemaEvolutionUtil.createDataProjection(
                                                 tableSchema.fields(),
@@ -122,9 +138,9 @@ public class AppendOnlyFileStoreRead implements FileStoreRead<InternalRow> {
                                         this.schemaId == key.schemaId
                                                 ? filters
                                                 : SchemaEvolutionUtil.createDataFilters(
-                                                        tableSchema.fields(),
-                                                        dataSchema.fields(),
-                                                        filters);
+                                                tableSchema.fields(),
+                                                dataSchema.fields(),
+                                                filters);
                                 return new BulkFormatMapping(
                                         indexCastMapping.getIndexMapping(),
                                         indexCastMapping.getCastMapping(),
@@ -135,6 +151,7 @@ public class AppendOnlyFileStoreRead implements FileStoreRead<InternalRow> {
                             });
             suppliers.add(
                     () ->
+                            // 封装读取数据器
                             new RowDataFileRecordReader(
                                     fileIO,
                                     dataFilePathFactory.toPath(file.fileName()),
