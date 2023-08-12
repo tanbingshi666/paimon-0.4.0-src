@@ -144,15 +144,20 @@ public class SnapshotSplitReaderImpl implements SnapshotSplitReader {
     @Override
     public List<DataSplit> splits() {
         // 1 获取 Plan 也即读取 snapshot + manifests 文件
+        // 最终将读取的 data-files 封装为 ManifestEntry
+        // 一个 ManifestEntry 本质就是 一个 data-files 的元数据 比如 ManifestEntry 维护了 data-file 的路径
         FileStoreScan.Plan plan = scan.plan();
         Long snapshotId = plan.snapshotId();
 
         // 2 按照分区 + 分桶组织数据元数据
+        // 也即将读取到的 data-file 元数据 ManifestEntry 进行过滤 ADD 类型的数据文件以及
+        // 根据 分区 + 分桶分组打包
+        // DataFileMeta 也是 data-file 的元数据
         Map<BinaryRow, Map<Integer, List<DataFileMeta>>> files =
                 FileStoreScan.Plan.groupByPartFiles(plan.files(FileKind.ADD));
 
         // key = scan.plan-sort-partition 默认 value = false
-        // 如果设置了 true 则需要排序
+        // 如果设置了 true 则需要排序 按照分区字段排序
         if (options.scanPlanSortPartition()) {
             Map<BinaryRow, Map<Integer, List<DataFileMeta>>> newFiles = new LinkedHashMap<>();
             files.entrySet().stream()
@@ -255,6 +260,7 @@ public class SnapshotSplitReaderImpl implements SnapshotSplitReader {
                     splitGenerator.split(bucketEntry.getValue())
                             .stream()
                             .map(
+                                    // 封装一个切片为 DataSplit
                                     files ->
                                             new DataSplit(
                                                     snapshotId,

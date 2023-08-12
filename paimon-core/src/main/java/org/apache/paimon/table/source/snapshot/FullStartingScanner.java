@@ -34,6 +34,7 @@ public class FullStartingScanner implements StartingScanner {
 
     @Override
     public Result scan(SnapshotManager snapshotManager, SnapshotSplitReader snapshotSplitReader) {
+        // 获取上一次 snapshot 也即读取 snapshot 文件下的所有子文件 比如 snapshot-1、snapshot-2 则返回 2
         Long startingSnapshotId = snapshotManager.latestSnapshotId();
         if (startingSnapshotId == null) {
             LOG.debug("There is currently no snapshot. Waiting for snapshot generation.");
@@ -44,8 +45,11 @@ public class FullStartingScanner implements StartingScanner {
                 startingSnapshotId,
                 // 读取数据切片
                 snapshotSplitReader
+                        // 读取全部数据类型
                         .withKind(ScanKind.ALL)
+                        // 从指定的 snapshot 读取数据
                         .withSnapshot(startingSnapshotId)
+                        // 获取文件切片
                         .splits());
     }
 }

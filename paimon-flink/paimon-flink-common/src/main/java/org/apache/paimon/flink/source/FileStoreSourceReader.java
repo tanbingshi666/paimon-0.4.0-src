@@ -43,6 +43,7 @@ public final class FileStoreSourceReader<T>
             @Nullable Long limit) {
         // 往下追
         this(
+                // IterateRecordsFunction
                 recordsFunction,
                 readerContext,
                 tableRead,
@@ -59,6 +60,7 @@ public final class FileStoreSourceReader<T>
         super(
                 // 创建 FileStoreSourceSplitReader 也即根据切片信息读取数据
                 () -> new FileStoreSourceSplitReader<>(recordsFunction, tableRead, limiter),
+                // IterateRecordsFunction
                 recordsFunction,
                 readerContext.getConfiguration(),
                 readerContext);
@@ -78,6 +80,7 @@ public final class FileStoreSourceReader<T>
         // this method is called each time when we consume one split
         // it is possible that one response from the coordinator contains multiple splits
         // we should only require for more splits after we've consumed all given splits
+        // 当 SourceReader 消费完已经分配好的切片的时候 向 SplitEnumerator 请求更多的切片
         if (getNumberOfCurrentlyAssignedSplits() == 0) {
             context.sendSplitRequest();
         }

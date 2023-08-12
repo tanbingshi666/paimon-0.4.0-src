@@ -30,7 +30,9 @@ import org.apache.paimon.table.source.InnerTableScan;
 import org.apache.paimon.table.source.ReadBuilder;
 import org.apache.paimon.table.source.ReadBuilderImpl;
 
-/** Inner table for implementation, provide newScan, newRead ... directly. */
+/**
+ * Inner table for implementation, provide newScan, newRead ... directly.
+ */
 public interface InnerTable extends Table {
 
     InnerTableScan newScan();
@@ -45,6 +47,7 @@ public interface InnerTable extends Table {
 
     @Override
     default ReadBuilder newReadBuilder() {
+        // 创建 ReadBuilderImpl
         return new ReadBuilderImpl(this);
     }
 

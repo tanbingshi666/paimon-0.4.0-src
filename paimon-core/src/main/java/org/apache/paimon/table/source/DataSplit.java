@@ -34,7 +34,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-/** Input splits. Needed by most batch computation engines. */
+/**
+ * Input splits. Needed by most batch computation engines.
+ */
 public class DataSplit implements Split {
 
     private static final long serialVersionUID = 2L;
@@ -65,6 +67,7 @@ public class DataSplit implements Split {
             List<DataFileMeta> files,
             boolean isIncremental,
             boolean reverseRowKind) {
+        // 初始化数据切片
         init(snapshotId, partition, bucket, files, isIncremental, reverseRowKind);
     }
 
@@ -75,10 +78,15 @@ public class DataSplit implements Split {
             List<DataFileMeta> files,
             boolean isIncremental,
             boolean reverseRowKind) {
+        // 哪个 snapshot
         this.snapshotId = snapshotId;
+        // 哪个 partition
         this.partition = partition;
+        // 哪个 bucket
         this.bucket = bucket;
+        // 哪个 bucket 下的哪些文件作为一个切片
         this.files = files;
+        // 是否为增量数据
         this.isIncremental = isIncremental;
         this.reverseRowKind = reverseRowKind;
     }

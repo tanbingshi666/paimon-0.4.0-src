@@ -197,7 +197,9 @@ public abstract class AbstractFileStoreScan implements FileStoreScan {
 
     @Override
     public Plan plan() {
+        // 1 默认情况下 specifiedManifests = null
         List<ManifestFileMeta> manifests = specifiedManifests;
+        // 2 默认情况下等于 snapshot 最大值
         Long snapshotId = specifiedSnapshotId;
         if (manifests == null) {
             if (snapshotId == null) {
@@ -206,10 +208,10 @@ public abstract class AbstractFileStoreScan implements FileStoreScan {
             if (snapshotId == null) {
                 manifests = Collections.emptyList();
             } else {
-                // 1 读取指定 snapshot 文件 JSON 内容
+                // 3 读取指定 snapshot 文件 JSON 内容
                 // 格式为: {table_name_dir}/snapshot/snapshot-{snapshotId}
                 Snapshot snapshot = snapshotManager.snapshot(snapshotId);
-                // 2 根据 snapshot 内容读取 manifests
+                // 4 根据 snapshot 内容读取 manifests 元数据内容
                 manifests = readManifests(snapshot);
             }
         }
@@ -217,12 +219,15 @@ public abstract class AbstractFileStoreScan implements FileStoreScan {
         final Long readSnapshot = snapshotId;
         final List<ManifestFileMeta> readManifests = manifests;
 
+        // 一个 ManifestEntry 代表着一个 data-file 是 add 还是 delete
         List<ManifestEntry> entries;
         try {
             entries =
                     FileUtils.COMMON_IO_FORK_JOIN_POOL
                             .submit(
                                     () ->
+                                            // 将读取到 snapshot 文件内容对应的 manifests list 进行处理
+                                            // 一个 manifests list 对应多个 data-files
                                             readManifests
                                                     .parallelStream()
                                                     .filter(this::filterManifestFileMeta)
@@ -236,6 +241,7 @@ public abstract class AbstractFileStoreScan implements FileStoreScan {
 
         List<ManifestEntry> files = new ArrayList<>();
         for (ManifestEntry file : ManifestEntry.mergeEntries(entries)) {
+            // 判断一个 data-file 的 bucket 数是否一致
             if (checkNumOfBuckets && file.totalBuckets() != numOfBuckets) {
                 String partInfo =
                         partitionConverter.getArity() > 0
@@ -258,7 +264,15 @@ public abstract class AbstractFileStoreScan implements FileStoreScan {
             // however entry.bucket() was computed against the old numOfBuckets
             // and thus the filtered manifest entries might be empty
             // which renders the bucket check invalid
-            if (filterByBucket(file) && filterByBucketSelector(file) && filterByLevel(file)) {
+            //
+            if (
+                //  是否检测过滤 bucket
+                    filterByBucket(file) &&
+                            // 是否选择指定的 bucket
+                            filterByBucketSelector(file) &&
+                            // 是否过滤指定 level 级别的数据
+                            filterByLevel(file)) {
+                // 目标读取数据 data-file 的元数据信息
                 files.add(file);
             }
         }
@@ -280,8 +294,11 @@ public abstract class AbstractFileStoreScan implements FileStoreScan {
     private List<ManifestFileMeta> readManifests(Snapshot snapshot) {
         switch (scanKind) {
             case ALL:
+                // 默认情况下 scanKind = ALL
+                // 读取 snapshot 文件内容的 baseManifestList、deltaManifestList 对应的 manifests 元数据
                 return snapshot.dataManifests(manifestList);
             case DELTA:
+                // 如果是 DELTA 则读取 Snapshot 的最新变化数据
                 return snapshot.deltaManifests(manifestList);
             case CHANGELOG:
                 if (snapshot.version() > Snapshot.TABLE_STORE_02_VERSION) {

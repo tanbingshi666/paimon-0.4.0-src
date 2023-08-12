@@ -143,6 +143,7 @@ public class FlinkSourceBuilder {
     }
 
     private ReadBuilder createReadBuilder() {
+        // 构建 ReadBuilder
         return table.newReadBuilder()
                 .withProjection(projectedFields)
                 .withFilter(predicate);

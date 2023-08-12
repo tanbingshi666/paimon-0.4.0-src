@@ -281,7 +281,7 @@ public class DataTableSource extends FlinkTableSource
         // 如果定义 Source 的并行度呢？
         // 1 一般情况下 在没有任何配置项下 默认并行度等于 Flink 定义的并行度 比如在命令行指定、在配置文件指定
         // 2 流式模式下 如果 Paimon 表指定了 scan.infer-parallelism = true 则默认并行度等于表的 bucket 个数
-        // 3 流式模式下 如果 Paimon 表指定了 scan.infer-parallelism = true 则进行数据切分操作
+        // 3 批式模式下 如果 Paimon 表指定了 scan.infer-parallelism = true 则进行数据切分操作
 
         // 5 构建 DataStream 里面封装了 SourceFunction
         return sourceBuilder.withParallelism(parallelism)

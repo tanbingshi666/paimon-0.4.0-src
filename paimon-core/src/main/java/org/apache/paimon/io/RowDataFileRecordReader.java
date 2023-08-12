@@ -59,6 +59,7 @@ public class RowDataFileRecordReader implements RecordReader<InternalRow> {
     public RecordReader.RecordIterator<InternalRow> readBatch() throws IOException {
         // 读取数据
         RecordIterator<InternalRow> iterator = reader.readBatch();
+        // 返回数据
         return iterator == null
                 ? null
                 : new RowDataFileRecordIterator(iterator, indexMapping, castMapping);

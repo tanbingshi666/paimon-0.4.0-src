@@ -90,6 +90,7 @@ public class OrcReaderFactory implements FormatReaderFactory {
         this.tableType = tableType;
         this.selectedFields = checkNotNull(selectedFields);
         this.conjunctPredicates = checkNotNull(conjunctPredicates);
+        // read.batch-size = 1024
         this.batchSize = batchSize;
     }
 
@@ -98,6 +99,7 @@ public class OrcReaderFactory implements FormatReaderFactory {
     @Override
     public OrcVectorizedReader createReader(FileIO fileIO, Path file) throws IOException {
         // 1 创建 Pool<OrcReaderBatch>
+        // 里面读取 默认 read.batch-size = 1024 读取多少条记录
         Pool<OrcReaderBatch> poolOfBatches = createPoolOfBatches(1);
 
         // 2 创建读取器以及根据切片信息读取哪些数据
@@ -143,6 +145,7 @@ public class OrcReaderFactory implements FormatReaderFactory {
         final Pool<OrcReaderBatch> pool = new Pool<>(numBatches);
 
         for (int i = 0; i < numBatches; i++) {
+            // 默认 read.batch-size = 1024
             final VectorizedRowBatch orcBatch = createBatchWrapper(schema, batchSize);
             final OrcReaderBatch batch = createReaderBatch(orcBatch, pool.recycler());
             pool.add(batch);
@@ -232,6 +235,7 @@ public class OrcReaderFactory implements FormatReaderFactory {
             final VectorizedRowBatch orcVectorBatch = batch.orcVectorizedRowBatch();
 
             // 2 读取数据到 orcVectorBatch
+            // 默认一次读取 1024 条数据到 orcVectorBatch
             if (!nextBatch(orcReader, orcVectorBatch)) {
                 batch.recycle();
                 return null;

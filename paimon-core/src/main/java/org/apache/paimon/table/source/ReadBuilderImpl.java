@@ -38,6 +38,8 @@ public class ReadBuilderImpl implements ReadBuilder {
     private int[][] projection;
 
     public ReadBuilderImpl(InnerTable table) {
+        // 1 Append-Only -> AppendOnlyFileStoreTable
+        // 2 Primary-Key -> ChangelogWithKeyFileStoreTable
         this.table = table;
     }
 

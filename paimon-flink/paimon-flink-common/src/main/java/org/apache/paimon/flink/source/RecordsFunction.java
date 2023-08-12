@@ -26,17 +26,25 @@ import org.apache.flink.connector.file.src.reader.BulkFormat;
 import org.apache.flink.connector.file.src.util.RecordAndPosition;
 import org.apache.flink.table.data.RowData;
 
-/** Records construction and emitter in source. */
+/**
+ * Records construction and emitter in source.
+ */
 public interface RecordsFunction<T> extends RecordEmitter<T, RowData, FileStoreSourceSplitState> {
 
-    /** Create a {@link RecordsWithSplitIds} to emit records. */
+    /**
+     * Create a {@link RecordsWithSplitIds} to emit records.
+     */
     RecordsWithSplitIds<T> createRecords(
             String splitId, BulkFormat.RecordIterator<RowData> recordsForSplit);
 
-    /** Create a {@link RecordsWithSplitIds} to indicate that the split is finished. */
+    /**
+     * Create a {@link RecordsWithSplitIds} to indicate that the split is finished.
+     */
     RecordsWithSplitIds<T> createRecordsWithFinishedSplit(String splitId);
 
-    /** Emit records for {@code element}. */
+    /**
+     * Emit records for {@code element}.
+     */
     void emitRecord(T element, SourceOutput<RowData> output, FileStoreSourceSplitState state)
             throws Exception;
 
@@ -49,7 +57,9 @@ public interface RecordsFunction<T> extends RecordEmitter<T, RowData, FileStoreS
         return new SingleRecordsFunction();
     }
 
-    /** Return one by one, possibly inserting checkpoint in the middle. */
+    /**
+     * Return one by one, possibly inserting checkpoint in the middle.
+     */
     class IterateRecordsFunction implements RecordsFunction<RecordAndPosition<RowData>> {
 
         @Override
@@ -69,6 +79,7 @@ public interface RecordsFunction<T> extends RecordEmitter<T, RowData, FileStoreS
                 RecordAndPosition<RowData> element,
                 SourceOutput<RowData> output,
                 FileStoreSourceSplitState state) {
+            // 将数据传递给下游
             output.collect(element.getRecord());
             state.setPosition(element);
         }
@@ -88,7 +99,7 @@ public interface RecordsFunction<T> extends RecordEmitter<T, RowData, FileStoreS
 
         @Override
         public RecordsWithSplitIds<BulkFormat.RecordIterator<RowData>>
-                createRecordsWithFinishedSplit(String splitId) {
+        createRecordsWithFinishedSplit(String splitId) {
             return SingleIteratorRecords.finishedSplit(splitId);
         }
 
@@ -98,6 +109,7 @@ public interface RecordsFunction<T> extends RecordEmitter<T, RowData, FileStoreS
                 SourceOutput<RowData> output,
                 FileStoreSourceSplitState state) {
             RecordAndPosition<RowData> record;
+            // 将数据传递给下游
             while ((record = element.next()) != null) {
                 output.collect(record.getRecord());
                 state.setPosition(record);

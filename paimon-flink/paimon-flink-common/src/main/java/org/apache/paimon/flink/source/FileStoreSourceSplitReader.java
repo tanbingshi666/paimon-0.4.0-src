@@ -80,7 +80,7 @@ public class FileStoreSourceSplitReader<T> implements SplitReader<T, FileStoreSo
 
     @Override
     public RecordsWithSplitIds<T> fetch() throws IOException {
-        // 1 检测读取切片数据 默认每次读取 read.batch-size = 1024
+        // 1 检测读取切片数据
         checkSplitOrStartNext();
 
         // pool first, pool size is 1, the underlying implementation does not allow multiple batches
@@ -93,7 +93,16 @@ public class FileStoreSourceSplitReader<T> implements SplitReader<T, FileStoreSo
             nextBatch = currentFirstBatch;
             currentFirstBatch = null;
         } else {
-            nextBatch = reachLimit() ? null : currentReader.recordReader().readBatch();
+            // 一般情况下 在流读情况下 是没有终点的 故执行 currentReader.recordReader().readBatch()
+            nextBatch = reachLimit() ?
+                    null :
+                    // 执行 LazyRecordReader.recordReader()
+                    // 基于 Append-Only 模型下 返回 RowDataFileRecordReader
+                    // 基于 Primary-Key 模型下 返回 RowDataRecordReader
+                    currentReader.recordReader()
+                            // RowDataFileRecordReader.readBatch() 读取数据
+                            // 默认读取一次读取 1024 条数
+                            .readBatch();
         }
 
         if (nextBatch == null) {
@@ -128,6 +137,7 @@ public class FileStoreSourceSplitReader<T> implements SplitReader<T, FileStoreSo
                             splitsChange.getClass()));
         }
 
+        // 添加 SplitReader 需要读取哪些切片信息
         splits.addAll(splitsChange.splits());
     }
 
@@ -161,12 +171,13 @@ public class FileStoreSourceSplitReader<T> implements SplitReader<T, FileStoreSo
         // 3 获取读取切片数据的读取器
         currentReader = new LazyRecordReader(nextSplit.split());
 
-        // 4 获取读取切片数据的到指定偏移量
+        // 4 表示需要等于多少条数据
         currentNumRead = nextSplit.recordsToSkip();
         if (limiter != null) {
             limiter.add(currentNumRead);
         }
 
+        // 一般情况下 currentNumRead = 0
         if (currentNumRead > 0) {
             // 5 读取数据到指定位置
             seek(currentNumRead);

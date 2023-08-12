@@ -34,6 +34,7 @@ public interface FileFormatFactory {
 
         public FormatContext(Options formatOptions, int readBatchSize) {
             this.formatOptions = formatOptions;
+            // 读取数据大小 read.batch-size = 1024
             this.readBatchSize = readBatchSize;
         }
 

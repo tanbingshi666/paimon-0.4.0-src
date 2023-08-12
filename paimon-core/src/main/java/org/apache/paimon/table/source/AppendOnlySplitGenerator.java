@@ -44,11 +44,14 @@ public class AppendOnlySplitGenerator implements SplitGenerator {
 
     @Override
     public List<List<DataFileMeta>> split(List<DataFileMeta> input) {
-        // 这个 input 就是每个桶的数据文件
+        // 这个 input 就是每个桶的 data-file 文件元数据
         List<DataFileMeta> files = new ArrayList<>(input);
-        // 根据数据文件的 SequenceNumber 进行排序
+        // 根据元数据的 minSequenceNumber 进行排序
         files.sort(fileComparator(false));
         // 执行文件切片划分
+        // 切分逻辑：
+        // 1 如果一个 data-file 大小大于 source.split.target-size=128MB 则该文件作为一个切片
+        // 2 如果一个 data-file 大小小于 source.split.open-file-cost=4MB 则认为该文件为 4MB 继续遍历累加文件大小 直到大于 128MB 累积的 data-file 作为一个切片
         Function<DataFileMeta, Long> weightFunc = file -> Math.max(file.fileSize(), openFileCost);
         return OrderedPacking.pack(files, weightFunc, targetSplitSize);
     }

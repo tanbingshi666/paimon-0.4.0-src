@@ -56,6 +56,7 @@ public abstract class ObjectsFile<T> {
     }
 
     public List<T> read(String fileName) {
+        // 读取数据
         return read(fileName, Filter.alwaysTrue(), Filter.alwaysTrue());
     }
 

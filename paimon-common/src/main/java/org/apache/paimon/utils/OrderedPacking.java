@@ -22,9 +22,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
-/** Ordered packing for input items. */
+/**
+ * Ordered packing for input items.
+ */
 public class OrderedPacking {
-    private OrderedPacking() {}
+    private OrderedPacking() {
+    }
 
     public static <T> List<List<T>> pack(
             Iterable<T> items, Function<T, Long> weightFunc, long targetWeight) {
@@ -33,8 +36,12 @@ public class OrderedPacking {
         List<T> binItems = new ArrayList<>();
         long binWeight = 0L;
 
+        // 遍历每个 data-file 元数据
         for (T item : items) {
+            // 判断 data-file 的文件大小与 openFileCost(默认4M) 取最大值
             long weight = weightFunc.apply(item);
+            // targetWeight 默认等于 128MB
+            // 累加计算：如果累加文件大小大于 128MB 则之前的文件作为一个切片
             if (binWeight + weight > targetWeight) {
                 packed.add(binItems);
                 binItems = new ArrayList<>();

@@ -86,12 +86,17 @@ public class ContinuousFileSplitEnumerator
         checkArgument(discoveryInterval > 0L);
         this.context = checkNotNull(context);
         this.bucketSplits = new HashMap<>();
+        // 如果使用上一次 checkpoint 那么可能存在 split
         addSplits(remainSplits);
         this.nextSnapshotId = nextSnapshotId;
+        // 动态发现新文件间隔
         this.discoveryInterval = discoveryInterval;
+        // 批处理情况下分配多少个 split 给 subtask 默认 10
         this.splitBatchSize = splitBatchSize;
         this.readersAwaitingSplit = new HashSet<>();
+        // split 文件生成器
         this.splitGenerator = new FileStoreSourceSplitGenerator();
+        // InnerStreamTableScanImpl
         this.scan = scan;
     }
 
@@ -117,10 +122,11 @@ public class ContinuousFileSplitEnumerator
 
     @Override
     public void start() {
+        // 启动 split enumerator
         context.callAsync(
-                // 1 进行数据切片
+                // 1 进行数据切片 返回 DataFilePlan
                 scan::plan,
-                // 2 进行数据切片分配
+                // 2 每隔一定时间动态发现新文件是否生成 如果发现新文件则生成 split
                 this::processDiscoveredSplits, 0, discoveryInterval);
     }
 
@@ -132,10 +138,12 @@ public class ContinuousFileSplitEnumerator
     @Override
     public void addReader(int subtaskId) {
         // this source is purely lazy-pull-based, nothing to do upon registration
+        // 添加 SourceReader 也即 SourceReader 注册操作
     }
 
     @Override
     public void handleSplitRequest(int subtaskId, @Nullable String requesterHostname) {
+        // 处理 SourceReader 发送请求 split 并分配 split
         readersAwaitingSplit.add(subtaskId);
         assignSplits();
     }
@@ -143,16 +151,21 @@ public class ContinuousFileSplitEnumerator
     @Override
     public void handleSourceEvent(int subtaskId, SourceEvent sourceEvent) {
         LOG.error("Received unrecognized event: {}", sourceEvent);
+        // SourceEvents 是 SplitEnumerator 和 SourceReader 之间来回传递的自定义事件
+        // 可以利用此机制来执行复杂的协调任务
     }
 
     @Override
     public void addSplitsBack(List<FileStoreSourceSplit> splits, int subtaskId) {
         LOG.debug("File Source Enumerator adds splits back: {}", splits);
+        // SourceReader 失败时会调用 addSplitsBack() 方法
+        // SplitEnumerator 应当收回已经被分配，但尚未被该 SourceReader 确认(acknowledged)的分片
         addSplitsBack(splits);
     }
 
     @Override
     public PendingSplitsCheckpoint snapshotState(long checkpointId) {
+        // 执行 source checkpoint
         List<FileStoreSourceSplit> splits = new ArrayList<>();
         bucketSplits.values().forEach(splits::addAll);
         final PendingSplitsCheckpoint checkpoint =
@@ -184,15 +197,20 @@ public class ContinuousFileSplitEnumerator
         }
 
         // 1 创建切片信息 (已经切片好了 存储在 Plan)
-        // 也即往 bucketSplits 添加
-        addSplits(splitGenerator.createSplits(plan));
+        // 也即往 bucketSplits (按 bucket 聚合) 添加
+        addSplits(
+                // 将 DataSplit 转化为 FileStoreSourceSplit
+                splitGenerator.createSplits(plan)
+        );
         // 2 执行切片分配
         assignSplits();
     }
 
     private void assignSplits() {
         // 1 执行分配切片信息
+        // 默认情况下 一个 SourceReader subtask 被分配 10 split 切片进行读取
         Map<Integer, List<FileStoreSourceSplit>> assignment = createAssignment();
+
         if (finished) {
             Iterator<Integer> iterator = readersAwaitingSplit.iterator();
             while (iterator.hasNext()) {
@@ -203,6 +221,7 @@ public class ContinuousFileSplitEnumerator
                 }
             }
         }
+        // 2 移除已经分配好的 SourceReader
         assignment.keySet().forEach(readersAwaitingSplit::remove);
 
         // 2 SplitEnumerator 接收到切片 后续给下游的 SourceReader 分配切片读取数据
@@ -211,24 +230,33 @@ public class ContinuousFileSplitEnumerator
 
     private Map<Integer, List<FileStoreSourceSplit>> createAssignment() {
         Map<Integer, List<FileStoreSourceSplit>> assignment = new HashMap<>();
-        // bucketSplits 维护了每个桶下的所有切片信息
+
+        // 1 bucketSplits 维护了每个桶下的所有切片信息
         bucketSplits.forEach(
                 (bucket, splits) -> {
                     if (splits.size() > 0) {
                         // To ensure the order of consumption, the data of the same bucket is given
                         // to a task to be consumed.
+                        // 2 计算 SourceReader subtask 任务下标索引
+                        // 桶索引 % SourceReader 并行度 = SourceReader subtask 任务下标索引
                         int task = bucket % context.currentParallelism();
+
+                        // 3 判断 SourceReader 是否已经向 SplitEnumerator 注册
                         if (readersAwaitingSplit.contains(task)) {
                             // if the reader that requested another split has failed in the
                             // meantime, remove
                             // it from the list of waiting readers
+                            // 如果 SourceReader 请求另一个 Split 已经失败了 则 SplitEnumerator 移除对应的 SourceReader
                             if (!context.registeredReaders().containsKey(task)) {
                                 readersAwaitingSplit.remove(task);
                                 return;
                             }
+
+                            // 4 默认情况下 一个 SourceReader 被分配 10 split 切片进行读取
                             List<FileStoreSourceSplit> taskAssignment =
                                     assignment.computeIfAbsent(task, i -> new ArrayList<>());
                             if (taskAssignment.size() < splitBatchSize) {
+                                // 5 从缓存弹出 split
                                 taskAssignment.add(splits.poll());
                             }
                         }

@@ -24,12 +24,15 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** Scanning plan containing snapshot ID and input splits. */
+/**
+ * Scanning plan containing snapshot ID and input splits.
+ */
 public class DataFilePlan implements TableScan.Plan {
 
     private final List<DataSplit> splits;
 
     public DataFilePlan(List<DataSplit> splits) {
+        // 就是切片好元数据信息
         this.splits = splits;
     }
 
@@ -39,7 +42,9 @@ public class DataFilePlan implements TableScan.Plan {
     }
 
     public static DataFilePlan fromResult(StartingScanner.Result result) {
+        // 创建 DataFilePlan
         return new DataFilePlan(
+                // 一般情况下 result = ScannedResult
                 result instanceof StartingScanner.ScannedResult
                         ? ((StartingScanner.ScannedResult) result).splits()
                         : Collections.emptyList());

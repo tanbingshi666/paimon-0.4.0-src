@@ -206,7 +206,10 @@ public class FlinkCatalog extends AbstractCatalog {
             throw new UnsupportedOperationException(
                     "Only support CatalogTable, but is: " + table.getClass());
         }
+        // 1 获取 CatalogTable
         CatalogTable catalogTable = (CatalogTable) table;
+
+        // 2 获取 CatalogTable 表的 options
         Map<String, String> options = table.getOptions();
         if (options.containsKey(CONNECTOR.key())) {
             throw new CatalogException(
@@ -220,15 +223,20 @@ public class FlinkCatalog extends AbstractCatalog {
         }
 
         // remove table path
+        // 3 移除 options 中 key = path
         String specific = options.remove(PATH.key());
         if (specific != null) {
             catalogTable = catalogTable.copy(options);
         }
 
         try {
+            // 4 创建表
             catalog.createTable(
+                    // 表数据存储路径
                     toIdentifier(tablePath),
+                    // 表的 schema 信息
                     FlinkCatalog.fromCatalogTable(catalogTable),
+                    // 如果存在是否忽略创建表
                     ignoreIfExists);
         } catch (Catalog.TableAlreadyExistException e) {
             throw new TableAlreadyExistException(getName(), tablePath);

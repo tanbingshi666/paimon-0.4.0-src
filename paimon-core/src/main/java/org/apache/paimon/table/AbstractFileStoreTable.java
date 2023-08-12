@@ -97,6 +97,7 @@ public abstract class AbstractFileStoreTable implements FileStoreTable {
 
     @Override
     public InnerStreamTableScan newStreamScan() {
+        // 创建 InnerStreamTableScanImpl
         return new InnerStreamTableScanImpl(
                 coreOptions(),
                 newSnapshotSplitReader(),

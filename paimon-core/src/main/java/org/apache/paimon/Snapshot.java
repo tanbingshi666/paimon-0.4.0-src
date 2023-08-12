@@ -59,6 +59,26 @@ import java.util.Map;
  *       so there is no compatibility issue.
  * </ul>
  */
+
+/**
+ * {
+ * "version" : 3,
+ * "id" : 1,
+ * "schemaId" : 0,
+ * "baseManifestList" : "manifest-list-4ccc-c07f-4090-958c-cfe3ce3889e5-0",
+ * "deltaManifestList" : "manifest-list-4ccc-c07f-4090-958c-cfe3ce3889e5-1",
+ * "changelogManifestList" : null,
+ * "commitUser" : "7d758485-981d-4b1a-a0c6-d34c3eb254bf",
+ * "commitIdentifier" : 9223372036854775807,
+ * "commitKind" : "APPEND",
+ * "timeMillis" : 1684155393354,
+ * "logOffsets" : { },
+ * "totalRecordCount" : 1,
+ * "deltaRecordCount" : 1,
+ * "changelogRecordCount" : 0,
+ * "watermark" : -9223372036854775808
+ * }
+ */
 public class Snapshot {
 
     public static final long FIRST_SNAPSHOT_ID = 1;
@@ -327,7 +347,10 @@ public class Snapshot {
      */
     public List<ManifestFileMeta> dataManifests(ManifestList manifestList) {
         List<ManifestFileMeta> result = new ArrayList<>();
+        // 读取 snapshot 文件中 baseManifestList 对应的 manifests 文件元数据
+        // manifests 文件内容维护了 data-files 的元数据
         result.addAll(manifestList.read(baseManifestList));
+        // 读取 snapshot 文件中 deltaManifestList 对应的 manifests 文件元数据
         result.addAll(deltaManifests(manifestList));
         return result;
     }
@@ -387,16 +410,24 @@ public class Snapshot {
         }
     }
 
-    /** Type of changes in this snapshot. */
+    /**
+     * Type of changes in this snapshot.
+     */
     public enum CommitKind {
 
-        /** Changes flushed from the mem table. */
+        /**
+         * Changes flushed from the mem table.
+         */
         APPEND,
 
-        /** Changes by compacting existing data files. */
+        /**
+         * Changes by compacting existing data files.
+         */
         COMPACT,
 
-        /** Changes that clear up the whole partition and then add new records. */
+        /**
+         * Changes that clear up the whole partition and then add new records.
+         */
         OVERWRITE
     }
 }

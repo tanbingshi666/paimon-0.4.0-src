@@ -78,11 +78,17 @@ public class InnerStreamTableScanImpl extends AbstractInnerTableScan
     @Override
     public Plan plan() {
         // 1 创建 StartingScanner
+        // 默认全增量一体读取表数据(LATEST_FULL) FullStartingScanner
         if (startingScanner == null) {
             startingScanner = createStartingScanner(true);
         }
 
         // 2 根据 key = changelog-producer 创建对应的 FollowUpScanner
+        // 2.1 changelog-producer = none -> DeltaFollowUpScanner
+        // 2.2 changelog-producer = input -> InputChangelogFollowUpScanner
+        // 2.3 changelog-producer = full-compaction -> CompactionChangelogFollowUpScanner
+        // 2.4 changelog-producer = lookup -> CompactionChangelogFollowUpScanner
+        // 2.5 changelog-producer = null -> null
         if (followUpScanner == null) {
             followUpScanner = createFollowUpScanner();
         }
@@ -94,18 +100,26 @@ public class InnerStreamTableScanImpl extends AbstractInnerTableScan
 
         // 4 判断任务启动是否依赖上一次的 checkpoint
         if (nextSnapshotId == null) {
+            // 返回 DataFilePlan
             return tryFirstPlan();
         } else {
+            // 5 这就就是动态检测哪些文件新生成
             return nextPlan();
         }
     }
 
     private Plan tryFirstPlan() {
         // 1 获取启动读取表数据扫描器(里面进行数据切片)
+        // 默认调用 FullStartingScanner.scan()
         StartingScanner.Result result = startingScanner.scan(snapshotManager, snapshotSplitReader);
+
+        // 2 一般情况下 ScannedResult
         if (result instanceof StartingScanner.ScannedResult) {
             long currentSnapshotId = ((StartingScanner.ScannedResult) result).currentSnapshotId();
+            // 记录下一次 snapshot id
             nextSnapshotId = currentSnapshotId + 1;
+            // 是否根据 watermark 终止读取数据
+            // 一般情况下为 false 除非定义 scan.bounded.watermark=xxx
             isFullPhaseEnd =
                     boundedChecker.shouldEndInput(snapshotManager.snapshot(currentSnapshotId));
         } else if (result instanceof StartingScanner.NextSnapshot) {
@@ -115,6 +129,8 @@ public class InnerStreamTableScanImpl extends AbstractInnerTableScan
                             && boundedChecker.shouldEndInput(
                             snapshotManager.snapshot(nextSnapshotId - 1));
         }
+
+        // 3 返回切片好的 Plan = DataFilePlan
         return DataFilePlan.fromResult(result);
     }
 

@@ -34,6 +34,9 @@ import javax.annotation.Nullable;
  * A Flink {@link Source} for paimon.
  */
 public abstract class FlinkSource
+        // Source 输出类型 比如 RowData
+        // Split 类型
+        // enumerator checkpoint 类型
         implements Source<RowData, FileStoreSourceSplit, PendingSplitsCheckpoint> {
 
     private static final long serialVersionUID = 1L;
