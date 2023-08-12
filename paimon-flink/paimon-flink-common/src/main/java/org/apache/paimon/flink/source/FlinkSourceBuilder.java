@@ -241,6 +241,11 @@ public class FlinkSourceBuilder {
                 }
             } else {
                 // 5 判断读取数据的时候是否添加了 consumer-id hint 选项
+                // 这两个的区别在于：
+                // 如果存在 consumer-id 那么 SourceFunction 并行度为 1
+                // 该SourceFunction注意要用切片读取文件和监控新文件并将切片信息传递给下游
+                // 如果不存在 consumer-id 那么 Source 就是FlinkSource 也即存在 SplitEnumerator 负责切片相关的
+                // 并将切片分配给 SourceReader
                 if (conf.contains(CoreOptions.CONSUMER_ID)) {
                     // 5.1 有 consumer-id 情况下读取表数据
                     return buildContinuousStreamOperator();

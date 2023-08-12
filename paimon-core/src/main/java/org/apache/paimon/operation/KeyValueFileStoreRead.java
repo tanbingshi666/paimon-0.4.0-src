@@ -57,7 +57,9 @@ import static org.apache.paimon.io.DataFilePathFactory.CHANGELOG_FILE_PREFIX;
 import static org.apache.paimon.predicate.PredicateBuilder.containsFields;
 import static org.apache.paimon.predicate.PredicateBuilder.splitAnd;
 
-/** {@link FileStoreRead} implementation for {@link KeyValueFileStore}. */
+/**
+ * {@link FileStoreRead} implementation for {@link KeyValueFileStore}.
+ */
 public class KeyValueFileStoreRead implements FileStoreRead<KeyValue> {
 
     private final TableSchema tableSchema;
@@ -66,13 +68,17 @@ public class KeyValueFileStoreRead implements FileStoreRead<KeyValue> {
     private final MergeFunctionFactory<KeyValue> mfFactory;
     private final boolean valueCountMode;
 
-    @Nullable private int[][] keyProjectedFields;
+    @Nullable
+    private int[][] keyProjectedFields;
 
-    @Nullable private List<Predicate> filtersForOverlappedSection;
+    @Nullable
+    private List<Predicate> filtersForOverlappedSection;
 
-    @Nullable private List<Predicate> filtersForNonOverlappedSection;
+    @Nullable
+    private List<Predicate> filtersForNonOverlappedSection;
 
-    @Nullable private int[][] valueProjection;
+    @Nullable
+    private int[][] valueProjection;
 
     public KeyValueFileStoreRead(
             FileIO fileIO,
@@ -150,6 +156,7 @@ public class KeyValueFileStoreRead implements FileStoreRead<KeyValue> {
 
     @Override
     public RecordReader<KeyValue> createReader(DataSplit split) throws IOException {
+        // 1 判断切片是否为增量
         if (split.isIncremental()) {
             KeyValueFileReaderFactory readerFactory =
                     readerFactoryBuilder.build(
@@ -173,9 +180,12 @@ public class KeyValueFileStoreRead implements FileStoreRead<KeyValue> {
         } else {
             // Sections are read by SortMergeReader, which sorts and merges records by keys.
             // So we cannot project keys or else the sorting will be incorrect.
+            // 2 正常情况下 读取 Primary-Key 需要排序、合并
+            // 2.1 构建 KeyValueFileReaderFactory 处理哪些 sorted-run 对应的 data-files 有重复 key的文件
             KeyValueFileReaderFactory overlappedSectionFactory =
                     readerFactoryBuilder.build(
                             split.partition(), split.bucket(), false, filtersForOverlappedSection);
+            // 2.2 构建 KeyValueFileReaderFactory 处理哪些 sorted-run 对应的 data-files 没有重复 key 的文件
             KeyValueFileReaderFactory nonOverlappedSectionFactory =
                     readerFactoryBuilder.build(
                             split.partition(),
@@ -184,12 +194,20 @@ public class KeyValueFileStoreRead implements FileStoreRead<KeyValue> {
                             filtersForNonOverlappedSection);
 
             List<ConcatRecordReader.ReaderSupplier<KeyValue>> sectionReaders = new ArrayList<>();
+
+            // 2.3 根据 Primary-Key 的合并引擎创建对应的  MergeFunction
             MergeFunctionWrapper<KeyValue> mergeFuncWrapper =
                     new ReducerMergeFunctionWrapper(mfFactory.create(valueProjection));
+
+            // 2.4 根据一个切片信息 一个切片信息默认对应多个 data-files 一个切片对应的数据量大于等于 128MB
+            // 将一个切片信息对应的 data-files 划分为多个 sorted-run (也即将重叠的 key 划分为一个 sorted-run)
+            // 也即 sectionReaders 有多少个 sorted-run 就有多少个 SortMergeReader
             for (List<SortedRun> section :
                     new IntervalPartition(split.files(), keyComparator).partition()) {
+                // 添加 SortMergeReader
                 sectionReaders.add(
                         () ->
+                                // 创建 SortMergeReader
                                 MergeTreeReaders.readerForSection(
                                         section,
                                         section.size() > 1
@@ -198,6 +216,7 @@ public class KeyValueFileStoreRead implements FileStoreRead<KeyValue> {
                                         keyComparator,
                                         mergeFuncWrapper));
             }
+            // 创建 DropDeleteReader
             DropDeleteReader reader =
                     new DropDeleteReader(ConcatRecordReader.create(sectionReaders));
 

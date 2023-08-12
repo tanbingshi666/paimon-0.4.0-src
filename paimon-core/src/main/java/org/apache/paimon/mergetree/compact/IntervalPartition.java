@@ -29,7 +29,9 @@ import java.util.List;
 import java.util.PriorityQueue;
 import java.util.stream.Collectors;
 
-/** Algorithm to partition several data files into the minimum number of {@link SortedRun}s. */
+/**
+ * Algorithm to partition several data files into the minimum number of {@link SortedRun}s.
+ */
 public class IntervalPartition {
 
     private final List<DataFileMeta> files;
@@ -69,6 +71,14 @@ public class IntervalPartition {
         List<DataFileMeta> section = new ArrayList<>();
         BinaryRow bound = null;
 
+        // 1 遍历每个 data-file 元数据
+        // 这些 file 根据最小 key 范围排序好了 例如
+        // [1, 2] [3, 4] [5, 180] [5, 190] [200, 600] [210, 700]
+        // 大概的意思是将相邻的两个 file 不存在重叠的 key 划分为一个 section 最终效果如下：
+        // section1: [1, 2]
+        // section2: [3, 4]
+        // section3: [5, 180], [5, 190]
+        // section4: [200, 600], [210, 700]
         for (DataFileMeta meta : files) {
             if (!section.isEmpty() && keyComparator.compare(meta.minKey(), bound) > 0) {
                 // larger than current right bound, conclude current section and create a new one
@@ -76,6 +86,7 @@ public class IntervalPartition {
                 section.clear();
                 bound = null;
             }
+
             section.add(meta);
             if (bound == null || keyComparator.compare(meta.maxKey(), bound) > 0) {
                 // update right bound

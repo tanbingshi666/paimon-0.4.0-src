@@ -54,7 +54,14 @@ public abstract class FlinkSource
 
     @Override
     public SourceReader<RowData, FileStoreSourceSplit> createReader(SourceReaderContext context) {
-        return createSourceReader(context, readBuilder.newRead(), limit);
+        // 创建 SourceReader
+        // 调用子类 ContinuousFileStoreSource.createSourceReader()
+        return createSourceReader(context,
+                // 根据表类型创建 TableRead
+                // Append-Only -> InnerTableRead
+                // Primary-Key -> KeyValueTableRead
+                readBuilder.newRead(),
+                limit);
     }
 
     public FileStoreSourceReader<?> createSourceReader(

@@ -36,12 +36,17 @@ public abstract class KeyValueTableRead implements InnerTableRead {
     protected final KeyValueFileStoreRead read;
 
     protected KeyValueTableRead(KeyValueFileStoreRead read) {
+        // KeyValueFileStoreRead
         this.read = read;
     }
 
     @Override
     public RecordReader<InternalRow> createReader(Split split) throws IOException {
-        return new RowDataRecordReader(read.createReader((DataSplit) split));
+        // 针对 Primary-Key 类型的数据进行读取
+        return new RowDataRecordReader(
+                // 创建 Primary-Key 读取器
+                read.createReader((DataSplit) split)
+        );
     }
 
     protected abstract RecordReader.RecordIterator<InternalRow> rowDataRecordIteratorFromKv(
@@ -52,12 +57,15 @@ public abstract class KeyValueTableRead implements InnerTableRead {
         private final RecordReader<KeyValue> wrapped;
 
         private RowDataRecordReader(RecordReader<KeyValue> wrapped) {
+            // 最终读取 Primary-Key 的读取器为 SortMergeReader
+            // 也即需要将重叠的key对应的 sorted-run合并读取
             this.wrapped = wrapped;
         }
 
         @Nullable
         @Override
         public RecordIterator<InternalRow> readBatch() throws IOException {
+            // 读取数据
             RecordIterator<KeyValue> batch = wrapped.readBatch();
             return batch == null ? null : rowDataRecordIteratorFromKv(batch);
         }

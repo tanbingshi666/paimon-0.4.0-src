@@ -221,8 +221,8 @@ public class MonitorFunction extends RichSourceFunction<Split>
                 // 自定义分区
                 // 大概的意思是 根据表一条记录的 bucket 值 % 任务并行度
                 // 假设整个任务的并行度为 8
-                // 比如 一条记录属于 3 号分桶 也即 bucket = 3  则这个数据属于 3 % 8 = 3 分区/并行度
-                // 比如 一条记录属于 1 号分桶 也即 bucket = 1  则这个数据属于 1 % 8 = 1 分区/并行度
+                // 比如 一条切片记录属于 3 号分桶 也即 bucket = 3  则这个数据属于 3 % 8 = 3 分区/并行度
+                // 比如 一条切片记录属于 1 号分桶 也即 bucket = 1  则这个数据属于 1 % 8 = 1 分区/并行度
                 .partitionCustom(
                         (key, numPartitions) -> key % numPartitions,
                         split -> ((DataSplit) split).bucket()

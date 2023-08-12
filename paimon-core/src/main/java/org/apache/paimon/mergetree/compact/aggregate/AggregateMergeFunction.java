@@ -100,6 +100,7 @@ public class AggregateMergeFunction implements MergeFunction<KeyValue> {
             List<String> tableNames,
             List<DataType> tableTypes,
             List<String> primaryKeys) {
+        // 创建 Factory
         return new Factory(conf, tableNames, tableTypes, primaryKeys);
     }
 
@@ -112,6 +113,7 @@ public class AggregateMergeFunction implements MergeFunction<KeyValue> {
         private final List<DataType> tableTypes;
         private final List<String> primaryKeys;
 
+        // 创建 Factory
         private Factory(
                 Options conf,
                 List<String> tableNames,

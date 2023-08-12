@@ -70,8 +70,10 @@ public class SortMergeReader<T> implements RecordReader<T> {
     @Nullable
     @Override
     public RecordIterator<T> readBatch() throws IOException {
+        // 读取数据 按照 sorted-run 单位读取 (一个 sorted-run 对应多个 data-file)
         for (RecordReader<KeyValue> reader : nextBatchReaders) {
             while (true) {
+                // 如果是 orc 存储格式 则调用 OrcVectorizedReader
                 RecordIterator<KeyValue> iterator = reader.readBatch();
                 if (iterator == null) {
                     // no more batches, permanently remove this reader
@@ -109,7 +111,9 @@ public class SortMergeReader<T> implements RecordReader<T> {
         }
     }
 
-    /** The iterator iterates on {@link SortMergeReader}. */
+    /**
+     * The iterator iterates on {@link SortMergeReader}.
+     */
     private class SortMergeIterator implements RecordIterator<T> {
 
         private boolean released = false;

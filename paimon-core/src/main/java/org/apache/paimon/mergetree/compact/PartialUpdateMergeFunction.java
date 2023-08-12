@@ -100,6 +100,7 @@ public class PartialUpdateMergeFunction implements MergeFunction<KeyValue> {
 
     public static MergeFunctionFactory<KeyValue> factory(
             boolean ignoreDelete, List<DataType> tableTypes) {
+        // 创建 Factory
         return new Factory(ignoreDelete, tableTypes);
     }
 
@@ -111,6 +112,7 @@ public class PartialUpdateMergeFunction implements MergeFunction<KeyValue> {
         private final List<DataType> tableTypes;
 
         private Factory(boolean ignoreDelete, List<DataType> tableTypes) {
+            // 是否忽略删除类型的数据 默认 partial-update.ignore-delete = false
             this.ignoreDelete = ignoreDelete;
             this.tableTypes = tableTypes;
         }

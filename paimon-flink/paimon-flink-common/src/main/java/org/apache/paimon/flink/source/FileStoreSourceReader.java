@@ -53,6 +53,8 @@ public final class FileStoreSourceReader<T>
     private FileStoreSourceReader(
             RecordsFunction<T> recordsFunction,
             SourceReaderContext readerContext,
+            // Append-Only -> InnerTableRead
+            // Primary-Key -> KeyValueTableRead
             TableRead tableRead,
             @Nullable RecordLimiter limiter) {
         // limiter is created in SourceReader, it can be shared in all split readers

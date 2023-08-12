@@ -30,7 +30,9 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/** Merge tree implementation of {@link SplitGenerator}. */
+/**
+ * Merge tree implementation of {@link SplitGenerator}.
+ */
 public class MergeTreeSplitGenerator implements SplitGenerator {
 
     private final Comparator<InternalRow> keyComparator;
@@ -42,7 +44,9 @@ public class MergeTreeSplitGenerator implements SplitGenerator {
     public MergeTreeSplitGenerator(
             Comparator<InternalRow> keyComparator, long targetSplitSize, long openFileCost) {
         this.keyComparator = keyComparator;
+        // 默认 128MB
         this.targetSplitSize = targetSplitSize;
+        // 默认 4MB
         this.openFileCost = openFileCost;
     }
 
@@ -56,6 +60,9 @@ public class MergeTreeSplitGenerator implements SplitGenerator {
          * OrderedPack algorithm. Note that the item to be packed here is each section, the capacity
          * is denoted as the targetSplitSize, and the final number of the bins is the number of
          * splits generated.
+         * 这个切片生成器的目的就是切片 Primary-Key 类型的数据, 一般情况下 一张表有多个分区以及对应的多个分桶
+         * 每个分桶存储着不同 key 范围数据 也即每个桶下的数据不会存在相同的 key 但是桶下可能存在多个 data-file
+         * 这些数据文件可能存在重叠的 key 这些重叠 key 对应的数据文件必须被分配到同一个 split 以便数据读取进行合并
          *
          * For instance, there are files: [1, 2] [3, 4] [5, 180] [5, 190] [200, 600] [210, 700]
          * with targetSplitSize 128M. After interval partition, there are four sections:
@@ -73,6 +80,10 @@ public class MergeTreeSplitGenerator implements SplitGenerator {
                 new IntervalPartition(files, keyComparator)
                         .partition().stream().map(this::flatRun).collect(Collectors.toList());
 
+        // 切片
+        // 切片逻辑：
+        // 1 根据 data-file 文件的key值范围降序排序，然后将相邻data-file存在重叠key的数据文件划分为一个sorted-run 因此sorted-run之间不会存在重叠的key
+        // 2 依次判断sorted-run的累加文件数据大小是否大于等于128MB，逻辑根据 AppendOnlySplitGenerator 相同
         return packSplits(sections);
     }
 

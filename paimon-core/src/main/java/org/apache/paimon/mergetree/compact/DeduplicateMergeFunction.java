@@ -49,6 +49,7 @@ public class DeduplicateMergeFunction implements MergeFunction<KeyValue> {
     }
 
     public static MergeFunctionFactory<KeyValue> factory() {
+        // 创建 Factory
         return new Factory();
     }
 

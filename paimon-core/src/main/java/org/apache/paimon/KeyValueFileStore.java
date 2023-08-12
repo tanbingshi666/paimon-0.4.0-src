@@ -34,7 +34,9 @@ import org.apache.paimon.utils.KeyComparatorSupplier;
 import java.util.Comparator;
 import java.util.function.Supplier;
 
-/** {@link FileStore} for querying and updating {@link KeyValue}s. */
+/**
+ * {@link FileStore} for querying and updating {@link KeyValue}s.
+ */
 public class KeyValueFileStore extends AbstractFileStore<KeyValue> {
 
     private static final long serialVersionUID = 1L;
@@ -62,6 +64,7 @@ public class KeyValueFileStore extends AbstractFileStore<KeyValue> {
         this.keyType = keyType;
         this.valueType = valueType;
         this.keyValueFieldsExtractor = keyValueFieldsExtractor;
+        // Primary-Key 合并引擎类型
         this.mfFactory = mfFactory;
         this.keyComparatorSupplier = new KeyComparatorSupplier(keyType);
     }
@@ -73,6 +76,7 @@ public class KeyValueFileStore extends AbstractFileStore<KeyValue> {
 
     @Override
     public KeyValueFileStoreRead newRead() {
+        // 创建 KeyValueFileStoreRead
         return new KeyValueFileStoreRead(
                 fileIO,
                 schemaManager,

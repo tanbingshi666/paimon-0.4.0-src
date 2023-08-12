@@ -69,6 +69,7 @@ public class FileStoreSourceSplitReader<T> implements SplitReader<T, FileStoreSo
             TableRead tableRead,
             @Nullable RecordLimiter limiter) {
         this.recordsFunction = recordsFunction;
+        // Primary-Key -> KeyValueTableRead
         this.tableRead = tableRead;
         this.limiter = limiter;
         this.splits = new LinkedList<>();
@@ -102,6 +103,7 @@ public class FileStoreSourceSplitReader<T> implements SplitReader<T, FileStoreSo
                     currentReader.recordReader()
                             // RowDataFileRecordReader.readBatch() 读取数据
                             // 默认读取一次读取 1024 条数
+                            // 如果是 Primary-Key 最终调用 SortMergeReader 进行读取 data-file
                             .readBatch();
         }
 
@@ -283,7 +285,9 @@ public class FileStoreSourceSplitReader<T> implements SplitReader<T, FileStoreSo
 
         public RecordReader<InternalRow> recordReader() throws IOException {
             if (lazyRecordReader == null) {
-                // 根据切片信息封装读取数据器 RowDataFileRecordReader
+                // 根据切片信息封装读取数据器 tableRead 等于如下
+                // Append-Only -> RowDataFileRecordReader
+                // Primary-Key -> KeyValueTableRead
                 lazyRecordReader = tableRead.createReader(split);
             }
             return lazyRecordReader;

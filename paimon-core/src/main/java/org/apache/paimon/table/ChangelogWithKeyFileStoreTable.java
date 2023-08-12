@@ -81,22 +81,31 @@ public class ChangelogWithKeyFileStoreTable extends AbstractFileStoreTable {
     @Override
     public KeyValueFileStore store() {
         if (lazyStore == null) {
+            // 1 获取表逻辑 schema
             RowType rowType = tableSchema.logicalRowType();
+            // 2 获取表选项配置
             Options conf = Options.fromMap(tableSchema.options());
             CoreOptions options = new CoreOptions(conf);
+            // 3 获取 Primary-Key 合并引擎
             CoreOptions.MergeEngine mergeEngine = options.mergeEngine();
             MergeFunctionFactory<KeyValue> mfFactory;
             switch (mergeEngine) {
+                // 3.1 Primary-Key 合并引擎为 deduplicate
                 case DEDUPLICATE:
+                    // 创建 Factory
                     mfFactory = DeduplicateMergeFunction.factory();
                     break;
                 case PARTIAL_UPDATE:
+                    // 3.2 Primary-Key 合并引擎为 partial-update
                     mfFactory =
                             PartialUpdateMergeFunction.factory(
+                                    // 默认 partial-update.ignore-delete = false
+                                    // 表示是否忽略删除类型的数据
                                     conf.get(CoreOptions.PARTIAL_UPDATE_IGNORE_DELETE),
                                     rowType.getFieldTypes());
                     break;
                 case AGGREGATE:
+                    // 3.2 Primary-Key 合并引擎为 aggregation
                     mfFactory =
                             AggregateMergeFunction.factory(
                                     conf,
@@ -113,7 +122,10 @@ public class ChangelogWithKeyFileStoreTable extends AbstractFileStoreTable {
                 mfFactory = LookupMergeFunction.wrap(mfFactory);
             }
 
+            // 4 创建 ChangelogWithKeyKeyValueFieldsExtractor
             KeyValueFieldsExtractor extractor = ChangelogWithKeyKeyValueFieldsExtractor.EXTRACTOR;
+
+            // 5 创建 KeyValueFileStore
             lazyStore =
                     new KeyValueFileStore(
                             fileIO(),
@@ -194,7 +206,12 @@ public class ChangelogWithKeyFileStoreTable extends AbstractFileStoreTable {
 
     @Override
     public InnerTableRead newRead() {
-        return new KeyValueTableRead(store().newRead()) {
+        // 创建 KeyValueTableRead
+        return new KeyValueTableRead(
+                // 创建 KeyValueFileStore
+                store()
+                        // 创建 KeyValueFileStoreRead
+                        .newRead()) {
 
             @Override
             public InnerTableRead withFilter(Predicate predicate) {

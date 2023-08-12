@@ -27,7 +27,9 @@ import org.apache.paimon.utils.TypeUtils;
 import java.util.Arrays;
 import java.util.Objects;
 
-/** Implementation for {@link ReadBuilder}. */
+/**
+ * Implementation for {@link ReadBuilder}.
+ */
 public class ReadBuilderImpl implements ReadBuilder {
 
     private static final long serialVersionUID = 1L;
@@ -82,7 +84,11 @@ public class ReadBuilderImpl implements ReadBuilder {
     @Override
     public TableRead newRead() {
         // 创建表读取数据器
-        InnerTableRead read = table.newRead().withFilter(filter);
+        InnerTableRead read =
+                // Append-Only -> AppendOnlyFileStoreTable
+                // Primary-Key -> ChangelogWithKeyFileStoreTable
+                table.newRead() // 如果是 Primary-Key 返回 KeyValueTableRead
+                        .withFilter(filter);
         if (projection != null) {
             read.withProjection(projection);
         }
