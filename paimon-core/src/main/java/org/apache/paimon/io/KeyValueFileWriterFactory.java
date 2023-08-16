@@ -85,6 +85,7 @@ public class KeyValueFileWriterFactory {
     }
 
     public RollingFileWriter<KeyValue, DataFileMeta> createRollingMergeTreeFileWriter(int level) {
+        // 创建 RollingFileWriter
         return new RollingFileWriter<>(
                 () -> createDataFileWriter(pathFactory.newPath(), level, getCompression(level)),
                 suggestedFileSize);
@@ -99,6 +100,7 @@ public class KeyValueFileWriterFactory {
     }
 
     public RollingFileWriter<KeyValue, DataFileMeta> createRollingChangelogFileWriter(int level) {
+        // 创建 RollingFileWriter
         return new RollingFileWriter<>(
                 () ->
                         createDataFileWriter(

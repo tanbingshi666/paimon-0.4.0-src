@@ -28,7 +28,9 @@ import java.io.IOException;
 
 import static org.apache.paimon.utils.Preconditions.checkNotNull;
 
-/** A {@link FormatWriter} implementation that writes data in ORC format. */
+/**
+ * A {@link FormatWriter} implementation that writes data in ORC format.
+ */
 public class OrcBulkWriter implements FormatWriter {
 
     private final Writer writer;
@@ -47,7 +49,9 @@ public class OrcBulkWriter implements FormatWriter {
 
     @Override
     public void addElement(InternalRow element) throws IOException {
+        // 将 element 数据缓存在 rowBatch
         vectorizer.vectorize(element, rowBatch);
+        // 默认先存缓存在内存 默认等到 1024 条刷写磁盘
         if (rowBatch.size == rowBatch.getMaxSize()) {
             writer.addRowBatch(rowBatch);
             rowBatch.reset();

@@ -89,11 +89,15 @@ public class FileStoreExpireImpl implements FileStoreExpire {
             ManifestFile.Factory manifestFileFactory,
             ManifestList.Factory manifestListFactory) {
         this.fileIO = fileIO;
+        // 默认 snapshot.num-retained.min = 10
         this.numRetainedMin = numRetainedMin;
+        // 默认 snapshot.num-retained.max = Integer.MAX_VALUE
         this.numRetainedMax = numRetainedMax;
+        // // 默认 snapshot.time-retained = 1h
         this.millisRetained = millisRetained;
         this.pathFactory = pathFactory;
         this.snapshotManager = snapshotManager;
+        // 场景 ConsumerManager
         this.consumerManager =
                 new ConsumerManager(snapshotManager.fileIO(), snapshotManager.tablePath());
         this.manifestFile = manifestFileFactory.create();
@@ -123,11 +127,11 @@ public class FileStoreExpireImpl implements FileStoreExpire {
 
         // find the earliest snapshot to retain
         for (long id = Math.max(latestSnapshotId - numRetainedMax + 1, earliest);
-                id <= latestSnapshotId - numRetainedMin;
-                id++) {
+             id <= latestSnapshotId - numRetainedMin;
+             id++) {
             if (snapshotManager.snapshotExists(id)
                     && currentMillis - snapshotManager.snapshot(id).timeMillis()
-                            <= millisRetained) {
+                    <= millisRetained) {
                 // within time threshold, can assume that all snapshots after it are also within
                 // the threshold
                 expireUntil(earliest, id);

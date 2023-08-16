@@ -31,14 +31,18 @@ import javax.annotation.Nullable;
 
 import java.util.Map;
 
-/** {@link FlinkSink} for writing records into paimon. */
+/**
+ * {@link FlinkSink} for writing records into paimon.
+ */
 public class FileStoreSink extends FlinkSink<RowData> {
 
     private static final long serialVersionUID = 1L;
 
     private final Lock.Factory lockFactory;
-    @Nullable private final Map<String, String> overwritePartition;
-    @Nullable private final LogSinkFunction logSinkFunction;
+    @Nullable
+    private final Map<String, String> overwritePartition;
+    @Nullable
+    private final LogSinkFunction logSinkFunction;
 
     public FileStoreSink(
             FileStoreTable table,
@@ -46,14 +50,18 @@ public class FileStoreSink extends FlinkSink<RowData> {
             @Nullable Map<String, String> overwritePartition,
             @Nullable LogSinkFunction logSinkFunction) {
         super(table, overwritePartition != null);
+        // 默认 null
         this.lockFactory = lockFactory;
+        // 默认 null
         this.overwritePartition = overwritePartition;
+        // 默认 null
         this.logSinkFunction = logSinkFunction;
     }
 
     @Override
     protected OneInputStreamOperator<RowData, Committable> createWriteOperator(
             StoreSinkWrite.Provider writeProvider, boolean isStreaming, String commitUser) {
+        // 创建 RowDataStoreWriteOperator
         return new RowDataStoreWriteOperator(table, logSinkFunction, writeProvider, commitUser);
     }
 
@@ -64,8 +72,10 @@ public class FileStoreSink extends FlinkSink<RowData> {
         // commit new files list even if they're empty.
         // Otherwise we can't tell if the commit is successful after
         // a restart.
+        // 创建 StoreCommitter
         return user ->
                 new StoreCommitter(
+                        // 创建 TableCommitImpl
                         table.newCommit(user)
                                 .withOverwrite(overwritePartition)
                                 .withLock(lockFactory.create())
@@ -74,6 +84,7 @@ public class FileStoreSink extends FlinkSink<RowData> {
 
     @Override
     protected CommittableStateManager createCommittableStateManager() {
+        // 创建 RestoreAndFailCommittableStateManager
         return new RestoreAndFailCommittableStateManager(
                 () -> new VersionedSerializerWrapper<>(new ManifestCommittableSerializer()));
     }

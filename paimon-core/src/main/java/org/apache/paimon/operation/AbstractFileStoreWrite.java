@@ -61,7 +61,8 @@ public abstract class AbstractFileStoreWrite<T>
     private final SnapshotManager snapshotManager;
     private final FileStoreScan scan;
 
-    @Nullable protected IOManager ioManager;
+    @Nullable
+    protected IOManager ioManager;
 
     protected final Map<BinaryRow, Map<Integer, WriterContainer<T>>> writers;
 
@@ -89,7 +90,11 @@ public abstract class AbstractFileStoreWrite<T>
 
     @Override
     public void write(BinaryRow partition, int bucket, T data) throws Exception {
+        // 1 根据分区+分桶获取 RecordWriter 器 如果获取不到则创建
         RecordWriter<T> writer = getWriterWrapper(partition, bucket).writer;
+        // 2 执行写入数据
+        // Append-Only -> AppendOnlyWriter
+        // Primary-Key -> MergeTreeWriter
         writer.write(data);
     }
 
@@ -121,11 +126,11 @@ public abstract class AbstractFileStoreWrite<T>
             throws Exception {
         long latestCommittedIdentifier;
         if (writers.values().stream()
-                        .map(Map::values)
-                        .flatMap(Collection::stream)
-                        .mapToLong(w -> w.lastModifiedCommitIdentifier)
-                        .max()
-                        .orElse(Long.MIN_VALUE)
+                .map(Map::values)
+                .flatMap(Collection::stream)
+                .mapToLong(w -> w.lastModifiedCommitIdentifier)
+                .max()
+                .orElse(Long.MIN_VALUE)
                 == Long.MIN_VALUE) {
             // Optimization for the first commit.
             //
@@ -279,6 +284,7 @@ public abstract class AbstractFileStoreWrite<T>
             buckets = new HashMap<>();
             writers.put(partition.copy(), buckets);
         }
+        // 创建分区对应分桶的 WriterContainer
         return buckets.computeIfAbsent(
                 bucket, k -> createWriterContainer(partition.copy(), bucket, overwrite));
     }
@@ -290,6 +296,7 @@ public abstract class AbstractFileStoreWrite<T>
             LOG.debug("Creating writer for partition {}, bucket {}", partition, bucket);
         }
 
+        // 1 获取最新 snapshot ID
         Long latestSnapshotId = snapshotManager.latestSnapshotId();
         RecordWriter<T> writer;
         if (emptyWriter) {
@@ -301,15 +308,21 @@ public abstract class AbstractFileStoreWrite<T>
                             null,
                             compactExecutor());
         } else {
+            // 2 创建 Writer 器
+            // Append-Only -> AppendOnlyWriter
+            // Primary-Key -> MergeTreeWriter
             writer =
                     createWriter(
                             partition.copy(),
                             bucket,
+                            // 2.1 扫描已经存在的 manifest 元数据信息
                             scanExistingFileMetas(latestSnapshotId, partition, bucket),
                             null,
+                            // 2.2 获取 compact 合并线程池 默认线程个数为 1
                             compactExecutor());
         }
         notifyNewWriter(writer);
+        // 3 创建 WriterContainer
         return new WriterContainer<>(writer, latestSnapshotId);
     }
 
@@ -336,7 +349,8 @@ public abstract class AbstractFileStoreWrite<T>
         return lazyCompactExecutor;
     }
 
-    protected void notifyNewWriter(RecordWriter<T> writer) {}
+    protected void notifyNewWriter(RecordWriter<T> writer) {
+    }
 
     protected abstract RecordWriter<T> createWriter(
             BinaryRow partition,
@@ -356,6 +370,8 @@ public abstract class AbstractFileStoreWrite<T>
         protected long lastModifiedCommitIdentifier;
 
         protected WriterContainer(RecordWriter<T> writer, Long baseSnapshotId) {
+            // Append-Only -> AppendOnlyWriter
+            // Primary-Key -> MergeTreeWriter
             this.writer = writer;
             this.baseSnapshotId =
                     baseSnapshotId == null ? Snapshot.FIRST_SNAPSHOT_ID - 1 : baseSnapshotId;
@@ -363,7 +379,9 @@ public abstract class AbstractFileStoreWrite<T>
         }
     }
 
-    /** Recoverable state of {@link AbstractFileStoreWrite}. */
+    /**
+     * Recoverable state of {@link AbstractFileStoreWrite}.
+     */
     public static class State {
         protected final BinaryRow partition;
         protected final int bucket;

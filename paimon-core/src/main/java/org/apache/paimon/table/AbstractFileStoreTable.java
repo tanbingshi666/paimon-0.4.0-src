@@ -215,9 +215,13 @@ public abstract class AbstractFileStoreTable implements FileStoreTable {
 
     @Override
     public TableCommitImpl newCommit(String commitUser) {
+        // 创建 TableCommitImpl
         return new TableCommitImpl(
+                // 创建 FileStoreCommitImpl
                 store().newCommit(commitUser),
+                // 判断是否定时检测哪些 snapshot 过期
                 coreOptions().writeOnly() ? null : store().newExpire(),
+                // 判断是否定时检测哪些 partition 过期
                 coreOptions().writeOnly() ? null : store().newPartitionExpire(commitUser));
     }
 

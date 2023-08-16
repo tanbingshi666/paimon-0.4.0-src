@@ -146,10 +146,14 @@ public abstract class AbstractFileStore<T> implements FileStore<T> {
 
     @Override
     public FileStoreExpireImpl newExpire() {
+        // 创建 snapshot 检测 FileStoreExpireImpl
         return new FileStoreExpireImpl(
                 fileIO,
+                // 默认 snapshot.num-retained.min = 10
                 options.snapshotNumRetainMin(),
+                // 默认 snapshot.num-retained.max = Integer.MAX_VALUE
                 options.snapshotNumRetainMax(),
+                // 默认 snapshot.time-retained = 1h
                 options.snapshotTimeRetain().toMillis(),
                 pathFactory(),
                 snapshotManager(),
@@ -161,11 +165,13 @@ public abstract class AbstractFileStore<T> implements FileStore<T> {
 
     @Override
     public PartitionExpire newPartitionExpire(String commitUser) {
+        // 判断表是否设置了 partition.expiration-time 默认为 null
         Duration partitionExpireTime = options.partitionExpireTime();
         if (partitionExpireTime == null || partitionType().getFieldCount() == 0) {
             return null;
         }
 
+        // 创建 PartitionExpire
         return new PartitionExpire(
                 partitionType(),
                 partitionExpireTime,

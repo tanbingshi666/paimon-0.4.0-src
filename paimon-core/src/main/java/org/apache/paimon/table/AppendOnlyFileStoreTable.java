@@ -136,8 +136,12 @@ public class AppendOnlyFileStoreTable extends AbstractFileStoreTable {
     @Override
     public TableWriteImpl<InternalRow> newWrite(
             String commitUser, ManifestCacheFilter manifestFilter) {
+        // 创建 TableWriteImpl
         return new TableWriteImpl<>(
-                store().newWrite(commitUser, manifestFilter),
+                // AppendOnlyFileStore
+                store()
+                        // AppendOnlyFileStoreWrite
+                        .newWrite(commitUser, manifestFilter),
                 new InternalRowKeyAndBucketExtractor(tableSchema),
                 record -> {
                     Preconditions.checkState(

@@ -55,7 +55,9 @@ public class BinaryInMemorySortBuffer extends BinaryIndexedSortable implements S
     private long sortIndexBytes;
     private boolean isInitialized;
 
-    /** Create a memory sorter in `insert` way. */
+    /**
+     * Create a memory sorter in `insert` way.
+     */
     public static BinaryInMemorySortBuffer createBuffer(
             NormalizedKeyComputer normalizedKeyComputer,
             AbstractRowDataSerializer<InternalRow> serializer,
@@ -110,7 +112,9 @@ public class BinaryInMemorySortBuffer extends BinaryIndexedSortable implements S
         return this.recordBufferSegments.size();
     }
 
-    /** Try to initialize the sort buffer if all contained data is discarded. */
+    /**
+     * Try to initialize the sort buffer if all contained data is discarded.
+     */
     private void tryInitialize() {
         if (!isInitialized) {
             // grab first buffer
@@ -159,13 +163,15 @@ public class BinaryInMemorySortBuffer extends BinaryIndexedSortable implements S
      * @param record The record to be written.
      * @return True, if the record was successfully written, false, if the sort buffer was full.
      * @throws IOException Thrown, if an error occurred while serializing the record into the
-     *     buffers.
+     *                     buffers.
      */
     @Override
     public boolean write(InternalRow record) throws IOException {
+        // 1 尝试初始化 sort buffer
         tryInitialize();
 
         // check whether we need a new memory segment for the sort index
+        // 2 检查是否需要新的 memory segment 用来排序索引
         if (!checkNextIndexOffset()) {
             return false;
         }
@@ -173,14 +179,15 @@ public class BinaryInMemorySortBuffer extends BinaryIndexedSortable implements S
         // serialize the record into the data buffers
         int skip;
         try {
+            // 3 将 record 序列化 然后存入 recordCollector
             skip = this.inputSerializer.serializeToPages(record, this.recordCollector);
         } catch (EOFException e) {
             return false;
         }
 
+        // 4 一些偏移量和索引的检查和物化操作
         final long newOffset = this.recordCollector.getCurrentOffset();
         long currOffset = currentDataBufferOffset + skip;
-
         writeIndexAndNormalizedKey(record, currOffset);
 
         this.currentDataBufferOffset = newOffset;

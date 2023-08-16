@@ -50,7 +50,9 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 
-/** A {@link WriteBuffer} which stores records in {@link BinaryInMemorySortBuffer}. */
+/**
+ * A {@link WriteBuffer} which stores records in {@link BinaryInMemorySortBuffer}.
+ */
 public class SortBufferWriteBuffer implements WriteBuffer {
 
     private final RowType keyType;
@@ -89,20 +91,28 @@ public class SortBufferWriteBuffer implements WriteBuffer {
                 BinaryInMemorySortBuffer.createBuffer(
                         normalizedKeyComputer, serializer, keyComparator, memoryPool);
         this.buffer =
-                ioManager != null && spillable
+                ioManager != null &&
+                        // 是否开启当 write buffer full 的时候刷写到磁盘 默认 write-buffer-spillable = false
+                        // 但是当存储为对象存储时 默认开启
+                        // 一般情况下 buffer = BinaryInMemorySortBuffer
+                        spillable
                         ? new BinaryExternalSortBuffer(
-                                new BinaryRowSerializer(serializer.getArity()),
-                                keyComparator,
-                                memoryPool.pageSize(),
-                                inMemorySortBuffer,
-                                ioManager,
-                                sortMaxFan)
+                        new BinaryRowSerializer(serializer.getArity()),
+                        keyComparator,
+                        memoryPool.pageSize(),
+                        inMemorySortBuffer,
+                        ioManager,
+                        sortMaxFan)
                         : inMemorySortBuffer;
     }
 
     @Override
     public boolean put(long sequenceNumber, RowKind valueKind, InternalRow key, InternalRow value)
             throws IOException {
+        // 序列化一条记录 然后往内存写
+        // 是否开启当 write buffer full 的时候刷写到磁盘 默认 write-buffer-spillable = false
+        // 但是当存储为对象存储时 默认开启
+        // 一般情况下 buffer = BinaryInMemorySortBuffer
         return buffer.write(serializer.toRow(key, sequenceNumber, valueKind, value));
     }
 
@@ -148,7 +158,8 @@ public class SortBufferWriteBuffer implements WriteBuffer {
     }
 
     private class MergeIterator {
-        @Nullable private final KvConsumer rawConsumer;
+        @Nullable
+        private final KvConsumer rawConsumer;
         private final MutableObjectIterator<BinaryRow> kvIter;
         private final Comparator<InternalRow> keyComparator;
         private final ReducerMergeFunctionWrapper mergeFunctionWrapper;
@@ -213,7 +224,7 @@ public class SortBufferWriteBuffer implements WriteBuffer {
 
                 while (readOnce()) {
                     if (keyComparator.compare(
-                                    previous.getReusedKv().key(), current.getReusedKv().key())
+                            previous.getReusedKv().key(), current.getReusedKv().key())
                             != 0) {
                         break;
                     }

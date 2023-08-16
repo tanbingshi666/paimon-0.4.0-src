@@ -76,13 +76,18 @@ public class RollingFileWriter<T, R> implements FileWriter<T, List<R>> {
     public void write(T row) throws IOException {
         try {
             // Open the current writer if write the first record or roll over happen before.
+            // 1 判断 Writer 是否准备好
             if (currentWriter == null) {
                 openCurrentWriter();
             }
 
+            // 2 执行写入
             currentWriter.write(row);
             recordCount += 1;
 
+            // 3 判断是否滚动文件 新生成文件
+            // 判断是否滚动文件逻辑如下：
+            // recordCount % 1000 == 0 && currentWriter.length >= 128 MB
             if (rollingFile()) {
                 closeCurrentWriter();
             }

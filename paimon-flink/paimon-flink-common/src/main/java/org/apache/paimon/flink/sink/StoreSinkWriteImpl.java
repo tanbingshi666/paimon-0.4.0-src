@@ -36,7 +36,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Default implementation of {@link StoreSinkWrite}. This writer does not have states. */
+/**
+ * Default implementation of {@link StoreSinkWrite}. This writer does not have states.
+ */
 public class StoreSinkWriteImpl implements StoreSinkWrite {
 
     private static final Logger LOG = LoggerFactory.getLogger(StoreSinkWriteImpl.class);
@@ -50,6 +52,8 @@ public class StoreSinkWriteImpl implements StoreSinkWrite {
     protected TableWriteImpl<?> write;
 
     public StoreSinkWriteImpl(
+            // Append-Only -> AppendOnlyFileStoreTable
+            // Primary-Key -> ChangelogWithKeyFileStoreTable
             FileStoreTable table,
             String commitUser,
             StoreSinkWriteState state,
@@ -60,11 +64,14 @@ public class StoreSinkWriteImpl implements StoreSinkWrite {
         this.state = state;
         this.ioManager = ioManager;
         this.isOverwrite = isOverwrite;
+        // 是否等待 compact
         this.waitCompaction = waitCompaction;
+        // 创建 TableWriteImpl
         this.write = newTableWrite(table);
     }
 
     private TableWriteImpl<?> newTableWrite(FileStoreTable table) {
+        // 创建 TableWriteImpl
         return table.newWrite(
                         commitUser,
                         (part, bucket) ->
@@ -75,6 +82,7 @@ public class StoreSinkWriteImpl implements StoreSinkWrite {
 
     @Override
     public SinkRecord write(InternalRow rowData) throws Exception {
+        // 调用 TableWriteImpl.writeAndReturn() 返回 SinkRecord
         return write.writeAndReturn(rowData);
     }
 

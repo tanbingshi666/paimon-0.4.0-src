@@ -35,7 +35,9 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-/** A {@link MergeTreeCompactRewriter} which produces changelog files for the compaction. */
+/**
+ * A {@link MergeTreeCompactRewriter} which produces changelog files for the compaction.
+ */
 public abstract class ChangelogMergeTreeRewriter extends MergeTreeCompactRewriter {
 
     public ChangelogMergeTreeRewriter(
@@ -56,9 +58,12 @@ public abstract class ChangelogMergeTreeRewriter extends MergeTreeCompactRewrite
     @Override
     public CompactResult rewrite(
             int outputLevel, boolean dropDelete, List<List<SortedRun>> sections) throws Exception {
+        // 判断是否 level0 存在数据文件
         if (rewriteChangelog(outputLevel, dropDelete, sections)) {
+            // 说明level0存在数据文件 需要合并重写 changelog
             return rewriteChangelogCompaction(outputLevel, sections);
         } else {
+            // 不需要重写 changelog 直接重写合并数据文件
             return rewriteCompaction(outputLevel, dropDelete, sections);
         }
     }

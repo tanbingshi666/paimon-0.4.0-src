@@ -24,7 +24,9 @@ import org.apache.paimon.mergetree.LevelSortedRun;
 import java.util.ArrayList;
 import java.util.List;
 
-/** A files unit for compaction. */
+/**
+ * A files unit for compaction.
+ */
 public interface CompactUnit {
 
     int outputLevel();
@@ -33,6 +35,7 @@ public interface CompactUnit {
 
     static CompactUnit fromLevelRuns(int outputLevel, List<LevelSortedRun> runs) {
         List<DataFileMeta> files = new ArrayList<>();
+        // 挑选合并的 sorted 一般情况下执行合并都是针对 bucket (对应一个 LSM) 下的所有 sorted-run 对应的所有数据文件
         for (LevelSortedRun run : runs) {
             files.addAll(run.run().files());
         }

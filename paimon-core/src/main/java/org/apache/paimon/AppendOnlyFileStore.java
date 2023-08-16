@@ -76,14 +76,17 @@ public class AppendOnlyFileStore extends AbstractFileStore<InternalRow> {
     @Override
     public AppendOnlyFileStoreWrite newWrite(
             String commitUser, ManifestCacheFilter manifestFilter) {
+        // 创建 AppendOnlyFileStoreWrite
         return new AppendOnlyFileStoreWrite(
                 fileIO,
+                // 创建 AppendOnlyFileStoreRead
                 newRead(),
                 schemaId,
                 commitUser,
                 rowType,
                 pathFactory(),
                 snapshotManager(),
+                // 创建 AppendOnlyFileStoreScan
                 newScan(true).withManifestCacheFilter(manifestFilter),
                 options);
     }

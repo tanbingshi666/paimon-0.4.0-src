@@ -49,7 +49,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/** A {@link RecordWriter} to write records and generate {@link CompactIncrement}. */
+/**
+ * A {@link RecordWriter} to write records and generate {@link CompactIncrement}.
+ */
 public class MergeTreeWriter implements RecordWriter<KeyValue>, MemoryOwner {
 
     private final boolean writeBufferSpillable;
@@ -143,9 +145,13 @@ public class MergeTreeWriter implements RecordWriter<KeyValue>, MemoryOwner {
                 kv.sequenceNumber() == KeyValue.UNKNOWN_SEQUENCE
                         ? newSequenceNumber()
                         : kv.sequenceNumber();
+
+        // 将记录写入内存
         boolean success = writeBuffer.put(sequenceNumber, kv.valueKind(), kv.key(), kv.value());
         if (!success) {
+            // 如果内存写满了 则刷写到磁盘 里面就涉及到是否检测合并
             flushWriteBuffer(false, false);
+            // 在添加记录到内存
             success = writeBuffer.put(sequenceNumber, kv.valueKind(), kv.key(), kv.value());
             if (!success) {
                 throw new RuntimeException("Mem table is too small to hold a single element.");
@@ -183,44 +189,63 @@ public class MergeTreeWriter implements RecordWriter<KeyValue>, MemoryOwner {
 
     private void flushWriteBuffer(boolean waitForLatestCompaction, boolean forcedFullCompaction)
             throws Exception {
+        // 1 来到这里 一般情况下 writeBuffer 有数据的
         if (writeBuffer.size() > 0) {
+            // 2 判断是否合并 一般针对的 Primary-Key
+            // 判断 level0 中 sorted-run 是否达到阈值
+            // 默认 level0 中 sorted-run 个数大于 5(num-sorted-run.compaction-trigger) + 1
             if (compactManager.shouldWaitCompaction()) {
                 waitForLatestCompaction = true;
             }
 
+            // 3 如果 Primary-Key 表 changelog-producer = input 则创建 RollingFileWriter 用来写 input changelog
             final RollingFileWriter<KeyValue, DataFileMeta> changelogWriter =
                     changelogProducer == ChangelogProducer.INPUT
                             ? writerFactory.createRollingChangelogFileWriter(0)
                             : null;
+            // 4 创建 RollingFileWriter 写正常数据
             final RollingFileWriter<KeyValue, DataFileMeta> dataWriter =
                     writerFactory.createRollingMergeTreeFileWriter(0);
 
             try {
+                // 5 遍历 writeBuffer
+                // 然后将对应的数据 changelog 数据、正常数据并分别写入到内存或者磁盘
                 writeBuffer.forEach(
                         keyComparator,
                         mergeFunction,
+                        // 5.1 写 changelog 数据 (一般先内存写 内存满了再往磁盘写)
                         changelogWriter == null ? null : changelogWriter::write,
+                        // 5.2 写正常数据 (一般先内存写 内存满了再往磁盘写)
                         dataWriter::write);
             } finally {
+                // 6 关闭写通道 也即将数据刷写到磁盘
                 if (changelogWriter != null) {
                     changelogWriter.close();
                 }
                 dataWriter.close();
             }
 
+            // 7 添加 changelog 的数据文件元数据 DataFileMeta
             if (changelogWriter != null) {
                 newFilesChangelog.addAll(changelogWriter.result());
             }
 
+            // 8 添加正常数据元数据 DataFileMeta
             for (DataFileMeta fileMeta : dataWriter.result()) {
                 newFiles.add(fileMeta);
+                // 往 Level0 添加sorted-run 的数据文件元数据
                 compactManager.addNewFile(fileMeta);
             }
 
+            // 9 write 缓存区清除
             writeBuffer.clear();
         }
 
+        // 10 尝试同步执行合并 也即 11 触发合并 的时候添加合并线程
+        // 如果合并线程没有结束 则这里就会阻塞等待 影响写入
         trySyncLatestCompaction(waitForLatestCompaction);
+
+        // 11 触发合并 也即添加合并线程 MergeTreeCompactTask
         compactManager.triggerCompaction(forcedFullCompaction);
     }
 
@@ -278,6 +303,7 @@ public class MergeTreeWriter implements RecordWriter<KeyValue>, MemoryOwner {
     }
 
     private void trySyncLatestCompaction(boolean blocking) throws Exception {
+        // 1 获取合并结果
         Optional<CompactResult> result = compactManager.getCompactionResult(blocking);
         result.ifPresent(this::updateCompactResult);
     }

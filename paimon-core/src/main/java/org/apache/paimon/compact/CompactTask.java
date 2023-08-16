@@ -26,7 +26,9 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-/** Compact task. */
+/**
+ * Compact task.
+ */
 public abstract class CompactTask implements Callable<CompactResult> {
 
     private static final Logger LOG = LoggerFactory.getLogger(CompactTask.class);
@@ -34,6 +36,7 @@ public abstract class CompactTask implements Callable<CompactResult> {
     @Override
     public CompactResult call() throws Exception {
         long startMillis = System.currentTimeMillis();
+        // 执行合并
         CompactResult result = doCompact();
 
         if (LOG.isDebugEnabled()) {

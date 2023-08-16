@@ -247,7 +247,9 @@ public class ChangelogWithKeyFileStoreTable extends AbstractFileStoreTable {
                         .map(field -> new SequenceGenerator(field, schema().logicalRowType()))
                         .orElse(null);
         final KeyValue kv = new KeyValue();
+        // 创建 TableWriteImpl
         return new TableWriteImpl<>(
+                // KeyValueFileStoreWrite
                 store().newWrite(commitUser, manifestFilter),
                 new InternalRowKeyAndBucketExtractor(tableSchema),
                 record -> {

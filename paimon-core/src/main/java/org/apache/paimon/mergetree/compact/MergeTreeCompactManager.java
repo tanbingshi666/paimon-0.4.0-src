@@ -40,7 +40,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
-/** Compact manager for {@link KeyValueFileStore}. */
+/**
+ * Compact manager for {@link KeyValueFileStore}.
+ */
 public class MergeTreeCompactManager extends CompactFutureManager {
 
     private static final Logger LOG = LoggerFactory.getLogger(MergeTreeCompactManager.class);
@@ -88,7 +90,11 @@ public class MergeTreeCompactManager extends CompactFutureManager {
     @Override
     public void triggerCompaction(boolean fullCompaction) {
         Optional<CompactUnit> optionalUnit;
+        // 1 获取 level 的所有 sorted-run
+        // 一般情况下 level0 对应多个 sorted-run 非 level0 下每个 level 对应一个 sorted-run
+        // 一个 sorted-run 对应多个数据文件 data-file
         List<LevelSortedRun> runs = levels.levelSortedRuns();
+        // 如果是 fullCompaction
         if (fullCompaction) {
             Preconditions.checkState(
                     taskFuture == null,
@@ -99,6 +105,8 @@ public class MergeTreeCompactManager extends CompactFutureManager {
                         "Trigger forced full compaciton. Picking from the following runs\n{}",
                         runs);
             }
+            // 2 挑选哪些 sorted-run 需要合并 (针对的是 full-compact)
+            // 挑选合并的 sorted 一般情况下执行合并都是针对 bucket (对应一个 LSM) 下的所有 sorted-run 对应的所有数据文件
             optionalUnit = CompactStrategy.pickFullCompaction(levels.numberOfLevels(), runs);
         } else {
             if (taskFuture != null) {
@@ -107,14 +115,16 @@ public class MergeTreeCompactManager extends CompactFutureManager {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Trigger normal compaciton. Picking from the following runs\n{}", runs);
             }
+            // 3 异步执行 level0 的数据合并 (可以理解为局部 min-compact)
             optionalUnit =
+                    // 挑选 sorted-run 合并
                     strategy.pick(levels.numberOfLevels(), runs)
                             .filter(unit -> unit.files().size() > 0)
                             .filter(
                                     unit ->
                                             unit.files().size() > 1
                                                     || unit.files().get(0).level()
-                                                            != unit.outputLevel());
+                                                    != unit.outputLevel());
         }
 
         optionalUnit.ifPresent(
@@ -134,16 +144,18 @@ public class MergeTreeCompactManager extends CompactFutureManager {
                         LOG.debug(
                                 "Submit compaction with files (name, level, size): "
                                         + levels.levelSortedRuns().stream()
-                                                .flatMap(lsr -> lsr.run().files().stream())
-                                                .map(
-                                                        file ->
-                                                                String.format(
-                                                                        "(%s, %d, %d)",
-                                                                        file.fileName(),
-                                                                        file.level(),
-                                                                        file.fileSize()))
-                                                .collect(Collectors.joining(", ")));
+                                        .flatMap(lsr -> lsr.run().files().stream())
+                                        .map(
+                                                file ->
+                                                        String.format(
+                                                                "(%s, %d, %d)",
+                                                                file.fileName(),
+                                                                file.level(),
+                                                                file.fileSize()))
+                                        .collect(Collectors.joining(", ")));
                     }
+
+                    // 4 提交合并任务
                     submitCompaction(unit, dropDelete);
                 });
     }
@@ -154,6 +166,7 @@ public class MergeTreeCompactManager extends CompactFutureManager {
     }
 
     private void submitCompaction(CompactUnit unit, boolean dropDelete) {
+        // 1 创建合并任务 MergeTreeCompactTask
         MergeTreeCompactTask task =
                 new MergeTreeCompactTask(keyComparator, minFileSize, rewriter, unit, dropDelete);
         if (LOG.isDebugEnabled()) {
@@ -167,13 +180,17 @@ public class MergeTreeCompactManager extends CompactFutureManager {
                                                     file.fileName(), file.level(), file.fileSize()))
                             .collect(Collectors.joining(", ")));
         }
+        // 2 提交合并任务 MergeTreeCompactTask 调用其 doCompact()
         taskFuture = executor.submit(task);
     }
 
-    /** Finish current task, and update result files to {@link Levels}. */
+    /**
+     * Finish current task, and update result files to {@link Levels}.
+     */
     @Override
     public Optional<CompactResult> getCompactionResult(boolean blocking)
             throws ExecutionException, InterruptedException {
+        // 获取合并结果
         Optional<CompactResult> result = innerGetCompactionResult(blocking);
         result.ifPresent(
                 r -> {
@@ -183,6 +200,7 @@ public class MergeTreeCompactManager extends CompactFutureManager {
                                 r.before(),
                                 r.after());
                     }
+                    // 更新 LSM Level
                     levels.update(r.before(), r.after());
                     if (LOG.isDebugEnabled()) {
                         LOG.debug(

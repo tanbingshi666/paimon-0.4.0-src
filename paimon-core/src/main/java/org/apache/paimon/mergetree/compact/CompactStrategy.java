@@ -45,6 +45,7 @@ public interface CompactStrategy {
             // only 1 sorted run on the max level, nothing to compact
             return Optional.empty();
         } else {
+            // 挑选合并 sorted-run
             return Optional.of(CompactUnit.fromLevelRuns(maxLevel, runs));
         }
     }

@@ -34,7 +34,9 @@ import java.util.stream.Collectors;
 import static java.util.Collections.emptyList;
 import static org.apache.paimon.utils.Preconditions.checkArgument;
 
-/** A class which stores all level files of merge tree. */
+/**
+ * A class which stores all level files of merge tree.
+ */
 public class Levels {
 
     private final Comparator<InternalRow> keyComparator;
@@ -114,7 +116,9 @@ public class Levels {
         return numberOfSortedRuns;
     }
 
-    /** @return the highest non-empty level or -1 if all levels empty. */
+    /**
+     * @return the highest non-empty level or -1 if all levels empty.
+     */
     public int nonEmptyHighestLevel() {
         int i;
         for (i = levels.size() - 1; i >= 0; i--) {
@@ -136,7 +140,9 @@ public class Levels {
 
     public List<LevelSortedRun> levelSortedRuns() {
         List<LevelSortedRun> runs = new ArrayList<>();
+        // 1 遍历 level0 的所有 sorted-run
         level0.forEach(file -> runs.add(new LevelSortedRun(0, SortedRun.fromSingle(file))));
+        // 2 遍历非 level 的 sorted-run 默认非 level 一个 sorted-run
         for (int i = 0; i < levels.size(); i++) {
             SortedRun run = levels.get(i);
             if (run.nonEmpty()) {
@@ -188,7 +194,9 @@ public class Levels {
                 .collect(Collectors.groupingBy(DataFileMeta::level, Collectors.toList()));
     }
 
-    /** A callback to notify dropping file. */
+    /**
+     * A callback to notify dropping file.
+     */
     public interface DropFileCallback {
 
         void notifyDropFile(String file);

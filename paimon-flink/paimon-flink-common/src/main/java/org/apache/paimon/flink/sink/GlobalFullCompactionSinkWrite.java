@@ -62,6 +62,8 @@ public class GlobalFullCompactionSinkWrite extends StoreSinkWriteImpl {
     private final TreeSet<Long> commitIdentifiersToCheck;
 
     public GlobalFullCompactionSinkWrite(
+            // Append-Only -> AppendOnlyFileStoreTable
+            // Primary-Key -> ChangelogWithKeyFileStoreTable
             FileStoreTable table,
             String commitUser,
             StoreSinkWriteState state,
@@ -71,13 +73,18 @@ public class GlobalFullCompactionSinkWrite extends StoreSinkWriteImpl {
             int deltaCommits) {
         super(table, commitUser, state, ioManager, isOverwrite, waitCompaction);
 
+        // 多少次 checkpoint 执行 full-compact
         this.deltaCommits = deltaCommits;
 
+        // Sink Table 名称
         this.tableName = table.name();
+
+        // snapshot 关联
         this.snapshotManager = table.snapshotManager();
 
         currentWrittenBuckets = new HashSet<>();
         writtenBuckets = new TreeMap<>();
+
         List<StoreSinkWriteState.StateValue> writtenBucketStateValues =
                 state.get(tableName, WRITTEN_BUCKETS_STATE_NAME);
         if (writtenBucketStateValues != null) {
@@ -93,6 +100,7 @@ public class GlobalFullCompactionSinkWrite extends StoreSinkWriteImpl {
 
     @Override
     public SinkRecord write(InternalRow rowData) throws Exception {
+        // 调用父类 StoreSinkWriteImpl.write()
         SinkRecord sinkRecord = super.write(rowData);
         touchBucket(sinkRecord.partition(), sinkRecord.bucket());
         return sinkRecord;

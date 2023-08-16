@@ -49,7 +49,9 @@ import java.util.concurrent.ExecutorService;
 import static org.apache.paimon.CoreOptions.APPEND_ONLY_ASSERT_DISORDER;
 import static org.apache.paimon.io.DataFileMeta.getMaxSequenceNumber;
 
-/** {@link FileStoreWrite} for {@link AppendOnlyFileStore}. */
+/**
+ * {@link FileStoreWrite} for {@link AppendOnlyFileStore}.
+ */
 public class AppendOnlyFileStoreWrite extends AbstractFileStoreWrite<InternalRow> {
 
     private final FileIO fileIO;
@@ -83,8 +85,11 @@ public class AppendOnlyFileStoreWrite extends AbstractFileStoreWrite<InternalRow
         this.rowType = rowType;
         this.fileFormat = options.fileFormat();
         this.pathFactory = pathFactory;
+        // 默认 target-file-size = 128MB
         this.targetFileSize = options.targetFileSize();
+        // 默认 compaction.min.file-num = 5
         this.compactionMinFileNum = options.compactionMinFileNum();
+        // 默认 compaction.max.file-num = 50
         this.compactionMaxFileNum = options.compactionMaxFileNum();
         this.commitForceCompact = options.commitForceCompact();
         this.skipCompaction = options.writeOnly();
@@ -96,25 +101,32 @@ public class AppendOnlyFileStoreWrite extends AbstractFileStoreWrite<InternalRow
     protected RecordWriter<InternalRow> createWriter(
             BinaryRow partition,
             int bucket,
+            // 该表已经存在的 manifest 文件元数据
             List<DataFileMeta> restoredFiles,
             @Nullable CommitIncrement restoreIncrement,
             ExecutorService compactExecutor) {
         // let writer and compact manager hold the same reference
         // and make restore files mutable to update
+        // 1 获取最大 SequenceNumber
         long maxSequenceNumber = getMaxSequenceNumber(restoredFiles);
+        // 2 获取分区以及分桶路径
         DataFilePathFactory factory = pathFactory.createDataFilePathFactory(partition, bucket);
+        // 3 判断是否跳过 compact
         CompactManager compactManager =
                 skipCompaction
                         ? new NoopCompactManager()
+                        // 创建 AppendOnlyCompactManager 管理着 Append-Only 表的合并操作
                         : new AppendOnlyCompactManager(
-                                compactExecutor,
-                                restoredFiles,
-                                compactionMinFileNum,
-                                compactionMaxFileNum,
-                                targetFileSize,
-                                compactRewriter(partition, bucket),
-                                assertDisorder);
+                        compactExecutor,
+                        restoredFiles,
+                        compactionMinFileNum,
+                        compactionMaxFileNum,
+                        targetFileSize,
+                        // 创建合并 Writer 器
+                        compactRewriter(partition, bucket),
+                        assertDisorder);
 
+        // 创建 AppendOnlyWriter
         return new AppendOnlyWriter(
                 fileIO,
                 schemaId,

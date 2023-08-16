@@ -89,6 +89,7 @@ public abstract class SingleFileWriter<T, R> implements FileWriter<T, R> {
 
     @Override
     public void write(T record) throws IOException {
+        // 写数据
         writeImpl(record);
     }
 
@@ -98,7 +99,9 @@ public abstract class SingleFileWriter<T, R> implements FileWriter<T, R> {
         }
 
         try {
+            // 1 转化数据
             InternalRow rowData = converter.apply(record);
+            // 2 往 orc 或者 parquet writer 写数据
             writer.addElement(rowData);
             recordCount++;
             return rowData;

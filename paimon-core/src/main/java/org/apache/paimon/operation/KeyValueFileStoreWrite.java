@@ -63,7 +63,9 @@ import java.util.function.Supplier;
 
 import static org.apache.paimon.io.DataFileMeta.getMaxSequenceNumber;
 
-/** {@link FileStoreWrite} for {@link KeyValueFileStore}. */
+/**
+ * {@link FileStoreWrite} for {@link KeyValueFileStore}.
+ */
 public class KeyValueFileStoreWrite extends MemoryFileStoreWrite<KeyValue> {
 
     private static final Logger LOG = LoggerFactory.getLogger(KeyValueFileStoreWrite.class);
@@ -134,26 +136,38 @@ public class KeyValueFileStoreWrite extends MemoryFileStoreWrite<KeyValue> {
                     restoreFiles);
         }
 
+        // 1 创建 KeyValueFileWriterFactory
         KeyValueFileWriterFactory writerFactory =
                 writerFactoryBuilder.build(
                         partition,
                         bucket,
                         options.fileCompressionPerLevel(),
                         options.fileCompression());
+
+        // 2 Key 比较器
         Comparator<InternalRow> keyComparator = keyComparatorSupplier.get();
+
+        // 3 创建 Levels
         Levels levels = new Levels(keyComparator, restoreFiles, options.numLevels());
+
+        // 4 创建通用合并 UniversalCompaction
         UniversalCompaction universalCompaction =
                 new UniversalCompaction(
                         options.maxSizeAmplificationPercent(),
                         options.sortedRunSizeRatio(),
                         options.numSortedRunCompactionTrigger(),
                         options.maxSortedRunNum());
+
+        // 5 创建合并策略
         CompactStrategy compactStrategy =
                 options.changelogProducer() == ChangelogProducer.LOOKUP
                         ? new LookupCompaction(universalCompaction)
                         : universalCompaction;
+
+        // 6 创建合并管理器 MergeTreeCompactManager
         CompactManager compactManager =
                 createCompactManager(partition, bucket, compactStrategy, compactExecutor, levels);
+        // 7 创建合并引擎 Writer
         return new MergeTreeWriter(
                 bufferSpillable(),
                 options.localSortMaxNumFileHandles(),
@@ -183,6 +197,7 @@ public class KeyValueFileStoreWrite extends MemoryFileStoreWrite<KeyValue> {
         } else {
             Comparator<InternalRow> keyComparator = keyComparatorSupplier.get();
             CompactRewriter rewriter = createRewriter(partition, bucket, keyComparator, levels);
+            // 创建 MergeTreeCompactManager
             return new MergeTreeCompactManager(
                     compactExecutor,
                     levels,

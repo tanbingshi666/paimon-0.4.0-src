@@ -44,22 +44,28 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
 
-/** A {@link PrepareCommitOperator} to write {@link RowData}. Record schema is fixed. */
+/**
+ * A {@link PrepareCommitOperator} to write {@link RowData}. Record schema is fixed.
+ */
 public class RowDataStoreWriteOperator extends PrepareCommitOperator<RowData> {
 
     private static final long serialVersionUID = 3L;
 
     private final FileStoreTable table;
-    @Nullable private final LogSinkFunction logSinkFunction;
+    @Nullable
+    private final LogSinkFunction logSinkFunction;
     private final StoreSinkWrite.Provider storeSinkWriteProvider;
     private final String initialCommitUser;
 
     private transient StoreSinkWriteState state;
     private transient StoreSinkWrite write;
     private transient SimpleContext sinkContext;
-    @Nullable private transient LogWriteCallback logCallback;
+    @Nullable
+    private transient LogWriteCallback logCallback;
 
-    /** We listen to this ourselves because we don't have an {@link InternalTimerService}. */
+    /**
+     * We listen to this ourselves because we don't have an {@link InternalTimerService}.
+     */
     private long currentWatermark = Long.MIN_VALUE;
 
     public RowDataStoreWriteOperator(
@@ -67,8 +73,10 @@ public class RowDataStoreWriteOperator extends PrepareCommitOperator<RowData> {
             @Nullable LogSinkFunction logSinkFunction,
             StoreSinkWrite.Provider storeSinkWriteProvider,
             String initialCommitUser) {
+        // 表
         this.table = table;
         this.logSinkFunction = logSinkFunction;
+        // Writer 提供器
         this.storeSinkWriteProvider = storeSinkWriteProvider;
         this.initialCommitUser = initialCommitUser;
     }
@@ -91,13 +99,19 @@ public class RowDataStoreWriteOperator extends PrepareCommitOperator<RowData> {
         // Each job can only have one user name and this name must be consistent across restarts.
         // We cannot use job id as commit user name here because user may change job id by creating
         // a savepoint, stop the job and then resume from savepoint.
+        // 1 获取 commitUser
         String commitUser =
                 StateUtils.getSingleValueFromState(
                         context, "commit_user_state", String.class, initialCommitUser);
 
+        // 2 创建 RowDataChannelComputer
         RowDataChannelComputer channelComputer =
                 new RowDataChannelComputer(table.schema(), logSinkFunction != null);
+
+        // 3 根据并行度设置 channel 个数
         channelComputer.setup(getRuntimeContext().getNumberOfParallelSubtasks());
+
+        // 4 创建 StoreSinkWriteState
         state =
                 new StoreSinkWriteState(
                         context,
@@ -105,6 +119,8 @@ public class RowDataStoreWriteOperator extends PrepareCommitOperator<RowData> {
                                 channelComputer.channel(partition, bucket)
                                         == getRuntimeContext().getIndexOfThisSubtask());
 
+        // 5 创建 Writer 器
+        // 有两种类型：GlobalFullCompactionSinkWrite、StoreSinkWriteImpl
         write =
                 storeSinkWriteProvider.provide(
                         table,
@@ -146,11 +162,15 @@ public class RowDataStoreWriteOperator extends PrepareCommitOperator<RowData> {
 
         SinkRecord record;
         try {
+            // 接收上游发送过来的数据进行写操作
+            // 如果表配置了 full-compact 则调用 GlobalFullCompactionSinkWrite.write()
+            // 否则调用 StoreSinkWriteImpl.write()
             record = write.write(new FlinkRowWrapper(element.getValue()));
         } catch (Exception e) {
             throw new IOException(e);
         }
 
+        // 如果存在 log.system 则双写
         if (logSinkFunction != null) {
             // write to log store, need to preserve original pk (which includes partition fields)
             SinkRecord logRecord = write.toLogRecord(record);
@@ -235,7 +255,8 @@ public class RowDataStoreWriteOperator extends PrepareCommitOperator<RowData> {
 
     private class SimpleContext implements SinkFunction.Context {
 
-        @Nullable private Long timestamp;
+        @Nullable
+        private Long timestamp;
 
         private final ProcessingTimeService processingTimeService;
 

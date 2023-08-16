@@ -103,6 +103,8 @@ public abstract class AbstractFlinkTableFactory
         return new FlinkTableSink(
                 context.getObjectIdentifier(),
                 // 构建 Paimon Table
+                // Append-Only -> AppendOnlyFileStoreTable
+                // Primary-Key -> ChangelogWithKeyFileStoreTable
                 buildPaimonTable(context),
                 context,
                 // 创建 LogStoreFactory 可选 一般情况下返回 Optional.empty()

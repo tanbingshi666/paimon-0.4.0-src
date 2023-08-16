@@ -106,6 +106,7 @@ public class AppendOnlyWriter implements RecordWriter<InternalRow> {
                 rowData.getRowKind() == RowKind.INSERT,
                 "Append-only writer can only accept insert row kind, but current row kind is: %s",
                 rowData.getRowKind());
+        // 执行写入
         writer.write(rowData);
     }
 

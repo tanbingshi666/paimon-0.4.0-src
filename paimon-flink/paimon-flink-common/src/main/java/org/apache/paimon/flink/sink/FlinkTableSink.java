@@ -53,17 +53,21 @@ import static org.apache.paimon.CoreOptions.CHANGELOG_PRODUCER;
 import static org.apache.paimon.CoreOptions.LOG_CHANGELOG_MODE;
 import static org.apache.paimon.CoreOptions.MERGE_ENGINE;
 
-/** Table sink to create sink. */
+/**
+ * Table sink to create sink.
+ */
 public class FlinkTableSink implements DynamicTableSink, SupportsOverwrite, SupportsPartitioning {
 
     private final ObjectIdentifier tableIdentifier;
     private final Table table;
     private final DynamicTableFactory.Context context;
-    @Nullable private final LogStoreTableFactory logStoreTableFactory;
+    @Nullable
+    private final LogStoreTableFactory logStoreTableFactory;
 
     private Map<String, String> staticPartitions = new HashMap<>();
     private boolean overwrite = false;
-    @Nullable private CatalogLock.Factory lockFactory;
+    @Nullable
+    private CatalogLock.Factory lockFactory;
 
     public FlinkTableSink(
             ObjectIdentifier tableIdentifier,
@@ -71,6 +75,8 @@ public class FlinkTableSink implements DynamicTableSink, SupportsOverwrite, Supp
             DynamicTableFactory.Context context,
             @Nullable LogStoreTableFactory logStoreTableFactory) {
         this.tableIdentifier = tableIdentifier;
+        // Append-Only -> AppendOnlyFileStoreTable
+        // Primary-Key -> ChangelogWithKeyFileStoreTable
         this.table = table;
         this.context = context;
         this.logStoreTableFactory = logStoreTableFactory;
@@ -78,6 +84,9 @@ public class FlinkTableSink implements DynamicTableSink, SupportsOverwrite, Supp
 
     @Override
     public ChangelogMode getChangelogMode(ChangelogMode requestedMode) {
+        // 判断 Paimon Sink changelog 模式
+        // 默认都是 ALL 但是如果是 Primary-Key 并且合并引擎为 DEDUPLICATE 则 changelog = upsert
+
         if (table instanceof AppendOnlyFileStoreTable) {
             // Don't check this, for example, only inserts are available from the database, but the
             // plan phase contains all changelogs
@@ -120,6 +129,7 @@ public class FlinkTableSink implements DynamicTableSink, SupportsOverwrite, Supp
                     "Paimon doesn't support streaming INSERT OVERWRITE.");
         }
 
+        // 1 一般情况下 logStoreTableFactory = null 除非定义了 log.system = kafka
         LogSinkProvider logSinkProvider = null;
         if (logStoreTableFactory != null) {
             logSinkProvider = logStoreTableFactory.createSinkProvider(this.context, context);
@@ -127,23 +137,32 @@ public class FlinkTableSink implements DynamicTableSink, SupportsOverwrite, Supp
 
         Options conf = Options.fromMap(table.options());
         // Do not sink to log store when overwrite mode
+        // 2 默认 null
         final LogSinkFunction logSinkFunction =
                 overwrite ? null : (logSinkProvider == null ? null : logSinkProvider.createSink());
+
+        // 3 创建 PaimonDataStreamSinkProvider
         return new PaimonDataStreamSinkProvider(
                 (dataStream) ->
                         new FlinkSinkBuilder((FileStoreTable) table)
+                                // 3.1 Sink 上游输入 DataStream
                                 .withInput(
                                         new DataStream<>(
                                                 dataStream.getExecutionEnvironment(),
                                                 dataStream.getTransformation()))
+                                // 3.2 默认 EmptyFactory
                                 .withLockFactory(
                                         Lock.factory(
                                                 lockFactory,
                                                 FlinkCatalog.toIdentifier(
                                                         tableIdentifier.toObjectPath())))
+                                // 3.3 默认 null
                                 .withLogSinkFunction(logSinkFunction)
+                                // 3.4 默认 null
                                 .withOverwritePartition(overwrite ? staticPartitions : null)
+                                // 3.5 Sink 并行度
                                 .withParallelism(conf.get(FlinkConnectorOptions.SINK_PARALLELISM))
+                                // 3.6 构建 DataStreamSink
                                 .build());
     }
 

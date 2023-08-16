@@ -84,14 +84,20 @@ public class TableWriteImpl<T>
     }
 
     public SinkRecord writeAndReturn(InternalRow row) throws Exception {
+        // 1 将一条记录设置到 Key & Bucket 抽取器 以便抽取 row 的分区和分桶
         keyAndBucketExtractor.setRecord(row);
+
+        // 2 封装记录为 SinkRecord
         SinkRecord record =
                 new SinkRecord(
                         keyAndBucketExtractor.partition(),
                         keyAndBucketExtractor.bucket(),
                         keyAndBucketExtractor.trimmedPrimaryKey(),
                         row);
+        // 3 将 SinkRecord 写入(先内存然后磁盘)
         write.write(record.partition(), record.bucket(), recordExtractor.extract(record));
+
+        // 4 返回
         return record;
     }
 
@@ -148,7 +154,9 @@ public class TableWriteImpl<T>
         write.restore(state);
     }
 
-    /** Extractor to extract {@link T} from the {@link SinkRecord}. */
+    /**
+     * Extractor to extract {@link T} from the {@link SinkRecord}.
+     */
     public interface RecordExtractor<T> {
 
         T extract(SinkRecord record);
