@@ -45,7 +45,8 @@ public class FlinkCdcSyncTableSinkBuilder<T> {
     private FileStoreTable table = null;
     private Lock.Factory lockFactory = Lock.emptyFactory();
 
-    @Nullable private Integer parallelism;
+    @Nullable
+    private Integer parallelism;
 
     public FlinkCdcSyncTableSinkBuilder<T> withInput(DataStream<T> input) {
         this.input = input;
@@ -77,11 +78,17 @@ public class FlinkCdcSyncTableSinkBuilder<T> {
         Preconditions.checkNotNull(parserFactory);
         Preconditions.checkNotNull(table);
 
+        /**
+         * 解析 cdc 数据
+         */
         SingleOutputStreamOperator<CdcRecord> parsed =
                 input.forward()
                         .process(new CdcParsingProcessFunction<>(parserFactory))
                         .setParallelism(input.getParallelism());
 
+        /**
+         * 如果存在 schema change 则将 schema change 数据侧输出流输出并处理
+         */
         DataStream<Void> schemaChangeProcessFunction =
                 SingleOutputStreamOperatorUtils.getSideOutput(
                                 parsed, CdcParsingProcessFunction.NEW_DATA_FIELD_LIST_OUTPUT_TAG)
@@ -91,6 +98,9 @@ public class FlinkCdcSyncTableSinkBuilder<T> {
         schemaChangeProcessFunction.getTransformation().setParallelism(1);
         schemaChangeProcessFunction.getTransformation().setMaxParallelism(1);
 
+        /**
+         * 将 mysql-cdc-source 算子后面添加分区器算子
+         */
         BucketingStreamPartitioner<CdcRecord> partitioner =
                 new BucketingStreamPartitioner<>(new CdcRecordChannelComputer(table.schema()));
         PartitionTransformation<CdcRecord> partitioned =
@@ -99,6 +109,12 @@ public class FlinkCdcSyncTableSinkBuilder<T> {
             partitioned.setParallelism(parallelism);
         }
 
+        /**
+         * 拼接整个 pipeline
+         * 大致的 pipeline 如下：
+         * mysql-cdc-source  -> partitioner -> sink writer -> global committer
+         *                   -> side output (schema change)
+         */
         StreamExecutionEnvironment env = input.getExecutionEnvironment();
         FlinkCdcSink sink = new FlinkCdcSink(table, lockFactory);
         return sink.sinkFrom(new DataStream<>(env, partitioned));

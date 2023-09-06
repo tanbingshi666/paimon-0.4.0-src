@@ -31,7 +31,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Utility class to load MySQL table schema with JDBC. */
+/**
+ * Utility class to load MySQL table schema with JDBC.
+ */
 public class MySqlSchema {
 
     private final String databaseName;
@@ -46,6 +48,9 @@ public class MySqlSchema {
         this.tableName = tableName;
 
         fields = new LinkedHashMap<>();
+        /**
+         * 解析表字段以及类型
+         */
         try (ResultSet rs = metaData.getColumns(databaseName, null, tableName, null)) {
             while (rs.next()) {
                 String fieldName = rs.getString("COLUMN_NAME");
@@ -60,14 +65,21 @@ public class MySqlSchema {
                 if (rs.wasNull()) {
                     scale = null;
                 }
+
                 fields.put(
                         fieldName,
                         Tuple2.of(
+                                /**
+                                 * 字段类型转化
+                                 */
                                 MySqlTypeUtils.toDataType(fieldType, precision, scale),
                                 fieldComment));
             }
         }
 
+        /**
+         * 表主键
+         */
         primaryKeys = new ArrayList<>();
         try (ResultSet rs = metaData.getPrimaryKeys(databaseName, null, tableName)) {
             while (rs.next()) {

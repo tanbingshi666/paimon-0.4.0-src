@@ -51,7 +51,8 @@ public class FlinkCdcSyncDatabaseSinkBuilder<T> {
     private List<FileStoreTable> tables = new ArrayList<>();
     private Lock.Factory lockFactory = Lock.emptyFactory();
 
-    @Nullable private Integer parallelism;
+    @Nullable
+    private Integer parallelism;
 
     public FlinkCdcSyncDatabaseSinkBuilder<T> withInput(DataStream<T> input) {
         this.input = input;
@@ -85,12 +86,22 @@ public class FlinkCdcSyncDatabaseSinkBuilder<T> {
 
         StreamExecutionEnvironment env = input.getExecutionEnvironment();
 
+        /**
+         * 实时读取 mysql 整库数据并根据表名进行侧输出流输出
+         * 表数据和表 schema change 都是通过侧输出流输出到下游
+         */
         SingleOutputStreamOperator<Void> parsed =
                 input.forward()
                         .process(new CdcMultiTableParsingProcessFunction<>(parserFactory))
                         .setParallelism(input.getParallelism());
 
+        /**
+         * 处理 mysql 数据
+         */
         for (FileStoreTable table : tables) {
+            /**
+             * 处理表 schema change 变化
+             */
             DataStream<Void> schemaChangeProcessFunction =
                     SingleOutputStreamOperatorUtils.getSideOutput(
                                     parsed,
@@ -102,6 +113,9 @@ public class FlinkCdcSyncDatabaseSinkBuilder<T> {
             schemaChangeProcessFunction.getTransformation().setParallelism(1);
             schemaChangeProcessFunction.getTransformation().setMaxParallelism(1);
 
+            /**
+             * 处理表数据
+             */
             BucketingStreamPartitioner<CdcRecord> partitioner =
                     new BucketingStreamPartitioner<>(new CdcRecordChannelComputer(table.schema()));
             PartitionTransformation<CdcRecord> partitioned =
@@ -116,6 +130,9 @@ public class FlinkCdcSyncDatabaseSinkBuilder<T> {
                 partitioned.setParallelism(parallelism);
             }
 
+            /**
+             * 拼接 pipeline
+             */
             FlinkCdcSink sink = new FlinkCdcSink(table, lockFactory);
             sink.sinkFrom(new DataStream<>(env, partitioned));
         }

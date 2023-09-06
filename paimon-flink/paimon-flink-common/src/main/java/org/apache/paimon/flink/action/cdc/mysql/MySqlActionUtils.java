@@ -241,6 +241,8 @@ class MySqlActionUtils {
 
         Map<String, Object> customConverterConfigs = new HashMap<>();
         customConverterConfigs.put(JsonConverterConfig.DECIMAL_FORMAT_CONFIG, "numeric");
+        // 抓取 mysql 数据反序列化
+        // 参考: https://ververica.github.io/flink-cdc-connectors/release-2.3/content/about.html#usage-for-datastream-api
         JsonDebeziumDeserializationSchema schema =
                 new JsonDebeziumDeserializationSchema(true, customConverterConfigs);
         return sourceBuilder.deserializer(schema).includeSchemaChanges(true).build();

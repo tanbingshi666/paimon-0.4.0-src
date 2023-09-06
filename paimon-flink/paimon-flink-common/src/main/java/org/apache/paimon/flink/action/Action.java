@@ -34,10 +34,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/** Abstract class for Flink actions. */
+/**
+ * Abstract class for Flink actions.
+ */
 public interface Action {
 
-    /** The execution method of the action. */
+    /**
+     * The execution method of the action.
+     */
     void run() throws Exception;
 
     @Nullable
@@ -110,7 +114,9 @@ public interface Action {
         return kvs;
     }
 
-    /** Factory to create {@link Action}. */
+    /**
+     * Factory to create {@link Action}.
+     */
     class Factory {
 
         // supported actions
@@ -136,8 +142,10 @@ public interface Action {
                 case MERGE_INTO:
                     return MergeIntoAction.create(actionArgs);
                 case MYSQL_SYNC_TABLE:
+                    // 同步 mysql 单表
                     return MySqlSyncTableAction.create(actionArgs);
                 case MYSQL_SYNC_DATABASE:
+                    // 同步 mysql 单库
                     return MySqlSyncDatabaseAction.create(actionArgs);
                 default:
                     System.err.println("Unknown action \"" + action + "\"");

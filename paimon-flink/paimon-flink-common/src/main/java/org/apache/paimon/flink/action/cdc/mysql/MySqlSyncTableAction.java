@@ -141,17 +141,34 @@ public class MySqlSyncTableAction implements Action {
     }
 
     public void build(StreamExecutionEnvironment env) throws Exception {
+        /**
+         * 构建 mysql cdc source
+         */
         MySqlSource<String> source = MySqlActionUtils.buildMySqlSource(mySqlConfig);
 
+        /**
+         * 创建 paimon catalog
+         * 根据 catalogConfig 创建对应的 catalog
+         * 默认 paimon 有两种 catalog 类型
+         * 1. FileSystemCatalog (default)
+         * 2. HiveCatalog
+         */
         Catalog catalog =
                 FlinkCatalogFactory.createPaimonCatalog(
                         Options.fromMap(catalogConfig).set(CatalogOptions.WAREHOUSE, warehouse));
         boolean caseSensitive = catalog.caseSensitive();
 
+        /**
+         * HiveCatalog 大小写敏感
+         */
         if (!caseSensitive) {
             validateCaseInsensitive();
         }
 
+        /**
+         * paimon 支持实时读取 mysql 多张表数据合并到 paimon 一张表
+         * 因此需要将 mysql 多张表的字段 schema 进行合并
+         */
         MySqlSchema mySqlSchema =
                 getMySqlSchemaList().stream()
                         .reduce(MySqlSchema::merge)
@@ -160,13 +177,23 @@ public class MySqlSyncTableAction implements Action {
                                         new RuntimeException(
                                                 "No table satisfies the given database name and table name"));
 
+        /**
+         * 创建 paimon 数据库
+         */
         catalog.createDatabase(database, true);
 
         Identifier identifier = new Identifier(database, table);
         FileStoreTable table;
+        /**
+         * 如果命令行指定了 --computed-column 参数
+         */
         List<ComputedColumn> computedColumns =
                 MySqlActionUtils.buildComputedColumns(
                         computedColumnArgs, mySqlSchema.typeMapping());
+
+        /**
+         * 构建 paimon 表 schema
+         */
         Schema fromMySql =
                 MySqlActionUtils.buildPaimonSchema(
                         mySqlSchema,
@@ -182,6 +209,9 @@ public class MySqlSyncTableAction implements Action {
                     "Cannot add computed column when table already exists.");
             MySqlActionUtils.assertSchemaCompatible(table.schema(), fromMySql);
         } catch (Catalog.TableNotExistException e) {
+            /**
+             * 创建 paimon 表
+             */
             catalog.createTable(identifier, fromMySql, false);
             table = (FileStoreTable) catalog.getTable(identifier);
         }
@@ -236,7 +266,11 @@ public class MySqlSyncTableAction implements Action {
         Pattern databasePattern =
                 Pattern.compile(mySqlConfig.get(MySqlSourceOptions.DATABASE_NAME));
         Pattern tablePattern = Pattern.compile(mySqlConfig.get(MySqlSourceOptions.TABLE_NAME));
+
         List<MySqlSchema> mySqlSchemaList = new ArrayList<>();
+        /**
+         * 基于原生的 JDBC 方式创建 Connection
+         */
         try (Connection conn = MySqlActionUtils.getConnection(mySqlConfig)) {
             DatabaseMetaData metaData = conn.getMetaData();
             try (ResultSet schemas = metaData.getCatalogs()) {
@@ -249,6 +283,10 @@ public class MySqlSyncTableAction implements Action {
                                 String tableName = tables.getString("TABLE_NAME");
                                 Matcher tableMatcher = tablePattern.matcher(tableName);
                                 if (tableMatcher.matches()) {
+                                    /**
+                                     * 一张表对应一个 MySqlSchema
+                                     * 里面会解析字段和字段类型
+                                     */
                                     mySqlSchemaList.add(
                                             new MySqlSchema(metaData, databaseName, tableName));
                                 }
@@ -273,6 +311,9 @@ public class MySqlSyncTableAction implements Action {
             return Optional.empty();
         }
 
+        /**
+         * 根据命令行解析 warehouse、database、table 参数
+         */
         Tuple3<String, String, String> tablePath = Action.getTablePath(params);
         if (tablePath == null) {
             return Optional.empty();
@@ -306,14 +347,23 @@ public class MySqlSyncTableAction implements Action {
 
         return Optional.of(
                 new MySqlSyncTableAction(
+                        // --mysql-conf 参数
                         mySqlConfig.get(),
+                        // --warehouse 参数
                         tablePath.f0,
+                        // --database 参数
                         tablePath.f1,
+                        // --table 参数
                         tablePath.f2,
+                        // --partition-keys 参数
                         partitionKeys,
+                        // --primary-keys 参数
                         primaryKeys,
+                        // --computed-column 参数
                         computedColumnArgs,
+                        // --catalog-conf 参数
                         catalogConfig.orElse(Collections.emptyMap()),
+                        // --table-conf 参数
                         tableConfig.orElse(Collections.emptyMap())));
     }
 

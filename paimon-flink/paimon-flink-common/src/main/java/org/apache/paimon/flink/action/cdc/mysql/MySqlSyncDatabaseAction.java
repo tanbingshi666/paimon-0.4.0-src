@@ -104,8 +104,10 @@ public class MySqlSyncDatabaseAction implements Action {
     private final boolean ignoreIncompatible;
     private final String tablePrefix;
     private final String tableSuffix;
-    @Nullable private final Pattern includingPattern;
-    @Nullable private final Pattern excludingPattern;
+    @Nullable
+    private final Pattern includingPattern;
+    @Nullable
+    private final Pattern excludingPattern;
     private final Map<String, String> catalogConfig;
     private final Map<String, String> tableConfig;
 
@@ -159,6 +161,9 @@ public class MySqlSyncDatabaseAction implements Action {
                         + " cannot be set for mysql-sync-database. "
                         + "If you want to sync several MySQL tables into one Paimon table, "
                         + "use mysql-sync-table instead.");
+        /**
+         * 创建 paimon catalog
+         */
         Catalog catalog =
                 FlinkCatalogFactory.createPaimonCatalog(
                         Options.fromMap(catalogConfig).set(CatalogOptions.WAREHOUSE, warehouse));
@@ -168,6 +173,10 @@ public class MySqlSyncDatabaseAction implements Action {
             validateCaseInsensitive();
         }
 
+        /**
+         * 获取 mysql 库下的所有表 schema
+         * 如果指定了 --including-tables、--excluding-tables 则需要匹配过滤
+         */
         List<MySqlSchema> mySqlSchemas = getMySqlSchemaList();
         checkArgument(
                 mySqlSchemas.size() > 0,
@@ -175,16 +184,30 @@ public class MySqlSyncDatabaseAction implements Action {
                         + mySqlConfig.get(MySqlSourceOptions.DATABASE_NAME)
                         + ", or MySQL database does not exist.");
 
+        /**
+         * 创建 paimon 数据库
+         */
         catalog.createDatabase(database, true);
+
+        /**
+         * paimon 表转化器
+         * 也即如果指定了 --table-prefix、--table-suffix 拼接即可
+         */
         TableNameConverter tableNameConverter =
                 new TableNameConverter(caseSensitive, tablePrefix, tableSuffix);
 
         List<FileStoreTable> fileStoreTables = new ArrayList<>();
         List<String> monitoredTables = new ArrayList<>();
         for (MySqlSchema mySqlSchema : mySqlSchemas) {
+            /**
+             * paimon 表名拼接器
+             */
             String paimonTableName = tableNameConverter.convert(mySqlSchema.tableName());
             Identifier identifier = new Identifier(database, paimonTableName);
             FileStoreTable table;
+            /**
+             * paimon 表 schema
+             */
             Schema fromMySql =
                     MySqlActionUtils.buildPaimonSchema(
                             mySqlSchema,
@@ -201,6 +224,9 @@ public class MySqlSyncDatabaseAction implements Action {
                     monitoredTables.add(mySqlSchema.tableName());
                 }
             } catch (Catalog.TableNotExistException e) {
+                /**
+                 * 创建 paimon 表
+                 */
                 catalog.createTable(identifier, fromMySql, false);
                 table = (FileStoreTable) catalog.getTable(identifier);
                 monitoredTables.add(mySqlSchema.tableName());
@@ -213,15 +239,19 @@ public class MySqlSyncDatabaseAction implements Action {
                 "No tables to be synchronized. Possible cause is the schemas of all tables in specified "
                         + "MySQL database are not compatible with those of existed Paimon tables. Please check the log.");
 
+        /**
+         * 创建 MysqlSource 实时读取 mysql 数据
+         */
         mySqlConfig.set(
                 MySqlSourceOptions.TABLE_NAME, "(" + String.join("|", monitoredTables) + ")");
         MySqlSource<String> source = MySqlActionUtils.buildMySqlSource(mySqlConfig);
 
         String serverTimeZone = mySqlConfig.get(MySqlSourceOptions.SERVER_TIME_ZONE);
         ZoneId zoneId = serverTimeZone == null ? ZoneId.systemDefault() : ZoneId.of(serverTimeZone);
+
+        // 构建整个任务 pipeline
         EventParser.Factory<String> parserFactory =
                 () -> new MySqlDebeziumJsonEventParser(zoneId, caseSensitive, tableNameConverter);
-
         FlinkCdcSyncDatabaseSinkBuilder<String> sinkBuilder =
                 new FlinkCdcSyncDatabaseSinkBuilder<String>()
                         .withInput(
@@ -260,7 +290,7 @@ public class MySqlSyncDatabaseAction implements Action {
         try (Connection conn = MySqlActionUtils.getConnection(mySqlConfig)) {
             DatabaseMetaData metaData = conn.getMetaData();
             try (ResultSet tables =
-                    metaData.getTables(databaseName, null, "%", new String[] {"TABLE"})) {
+                         metaData.getTables(databaseName, null, "%", new String[]{"TABLE"})) {
                 while (tables.next()) {
                     String tableName = tables.getString("TABLE_NAME");
                     if (!shouldMonitorTable(tableName)) {
